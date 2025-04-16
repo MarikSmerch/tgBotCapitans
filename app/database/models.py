@@ -20,6 +20,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tg_id: Mapped[int] = mapped_column(BigInteger, unique=True)
     vk_url: Mapped[str] = mapped_column(String, nullable=True)
+    is_subscribed: Mapped[bool] = mapped_column(default=True, server_default="1")
 
 
 async def async_mainbd():

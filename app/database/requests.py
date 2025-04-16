@@ -27,3 +27,25 @@ async def set_link(tg_id: int, vk_link: str) -> None:
                           .where(User.tg_id == tg_id))
         await session.execute(vk_link_update)
         await session.commit()
+
+
+async def change_subscribed(tg_id: int) -> int:
+    async with async_session() as session:
+        user = await session.scalar(select(User).where(User.tg_id == tg_id))
+
+        new_status = not user.is_subscribed
+
+        change_sub = (
+            update(User)
+            .values(is_subscribed=new_status)
+            .where(User.tg_id == tg_id)
+        )
+
+        await session.execute(change_sub)
+        await session.commit()
+
+
+async def get_subscribed(tg_id: int) -> int:
+    async with async_session() as session:
+        user = await session.scalar(select(User).where(User.tg_id == tg_id))
+        return user.is_subscribed
