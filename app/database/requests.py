@@ -49,3 +49,11 @@ async def get_subscribed(tg_id: int) -> int:
     async with async_session() as session:
         user = await session.scalar(select(User).where(User.tg_id == tg_id))
         return user.is_subscribed
+
+
+async def get_all_subscribed_users():
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.is_subscribed)
+        )
+        return result.scalars().all()
