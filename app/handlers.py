@@ -4,6 +4,11 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from aiogram.filters import CommandStart, Command
 import app.database.requests as rq
 
+from aiogram.fsm.context import FSMContext
+from app.states.registration import FSMRegistration
+
+import re
+
 router = Router()
 
 
@@ -25,12 +30,16 @@ async def send_main_menu(message):
 # Отрисовка профиля с кнопкой подписки
 async def send_profile_menu(send_func, user):
     subscribed = bool(await rq.get_subscribed(user.id))
+    user = await rq.get_user_by_tg_id(user.id)
+
+    hidden_phone = user.phone_number[:-4] + "XXXX"
 
     profile_text = (
         f"👤 <b>Профиль</b>\n"
-        f"Имя: {user.full_name}\n"
-        f"ID: <code>{user.id}</code>\n"
-        f"Юзернейм: @{user.username or '—'}"
+        f"Имя: {user.surname} {user.name} {user.patronymic}\n"
+        f"Год поступления: {user.entry_year}\n"
+        f"Номер телефона: {hidden_phone}\n"
+        f"Ссылка на ТД:{user.contact_url}\n"
     )
 
     sub_text = "📩 Отписаться" if subscribed else "📴 Подписаться"
@@ -90,9 +99,17 @@ async def send_events(send_func):
 
 # /start
 @router.message(CommandStart())
-async def cmd_start(message: Message):
-    await rq.set_user(message.from_user.id)
-    await send_main_menu(message)
+async def cmd_start(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+
+    await rq.set_user(user_id)
+    user = await rq.get_user_by_tg_id(user_id)
+
+    if not (user.surname and user.name and user.patronymic and user.entry_year and user.phone_number and user.contact_url):
+        await state.set_state(FSMRegistration.surname)
+        await message.answer("Добро пожаловать!\n\nНачнём с <b>фамилии</b>:", parse_mode="HTML")
+    else:
+        await send_main_menu(message)
 
 
 # кнопка Главное меню
@@ -191,3 +208,69 @@ async def send_broadcast(message: Message):
     await message.answer(
         f"📣 Рассылка завершена\n\n✅ Отправлено: {success}\n❌ Ошибок: {failed}"
     )
+
+
+@router.message(FSMRegistration.surname)
+async def reg_surname(message: Message, state: FSMContext):
+    await state.update_data(surname=message.text.strip())
+    await state.set_state(FSMRegistration.name)
+    await message.answer("Введите ваше <b>имя</b>:", parse_mode="HTML")
+
+
+@router.message(FSMRegistration.name)
+async def reg_name(message: Message, state: FSMContext):
+    await state.update_data(name=message.text.strip())
+    await state.set_state(FSMRegistration.patronymic)
+    await message.answer("Введите ваше <b>отчество</b>:", parse_mode="HTML")
+
+
+@router.message(FSMRegistration.patronymic)
+async def reg_patronymic(message: Message, state: FSMContext):
+    await state.update_data(patronymic=message.text.strip())
+    await state.set_state(FSMRegistration.entry_year)
+    await message.answer("Выберите <b>год поступления</b>:", parse_mode="HTML", reply_markup=InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="2023", callback_data="year_2023")],
+            [InlineKeyboardButton(text="2024", callback_data="year_2024")],
+            [InlineKeyboardButton(text="2025", callback_data="year_2025")]
+        ]
+    ))
+
+
+@router.callback_query(F.data.startswith("year_"), FSMRegistration.entry_year)
+async def reg_entry_year(callback: CallbackQuery, state: FSMContext):
+    year = int(callback.data.split("_")[1])
+    await state.update_data(entry_year=year)
+    await state.set_state(FSMRegistration.phone)
+    await callback.message.edit_text("Введите ваш <b>номер телефона</b> в формате +7(XXX)XXX-XX-XX:", parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(FSMRegistration.phone)
+async def reg_phone(message: Message, state: FSMContext):
+    phone = message.text.strip()
+    if not re.fullmatch(r"\+7\(\d{3}\)\d{3}-\d{2}-\d{2}", phone):
+        await message.answer("⚠️ Неверный формат. Попробуйте ещё раз: +7(XXX)XXX-XX-XX")
+        return
+    await state.update_data(phone=phone)
+    await state.set_state(FSMRegistration.social_link)
+    await message.answer("Укажи ссылку на ТД:")
+
+
+@router.message(FSMRegistration.social_link)
+async def reg_social(message: Message, state: FSMContext):
+    link = message.text.strip()
+    if not link.startswith("http"):
+        await message.answer("⚠️ Ссылка должна начинаться с http")
+        return
+
+    await state.update_data(contact_url=link)
+    data = await state.get_data()
+    await rq.set_fio(message.from_user.id, data["surname"], data["name"], data["patronymic"])
+    await rq.set_entry_year(message.from_user.id, data["entry_year"])
+    await rq.set_phone_number(message.from_user.id, data["phone"])
+    await rq.set_contact_url(message.from_user.id, data["contact_url"])
+    await state.clear()
+
+    await message.answer("✅ Регистрация завершена!")
+    await send_main_menu(message)
