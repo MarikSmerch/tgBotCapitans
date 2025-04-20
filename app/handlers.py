@@ -38,9 +38,10 @@ async def send_profile_menu(send_func, user):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Главное меню", callback_data="main_menu"),
+                InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
                 InlineKeyboardButton(text=sub_text, callback_data="toggle_subscription")
-            ]
+            ],
+            [InlineKeyboardButton(text="Изменить данные", callback_data="edit_profile")]
         ]
     )
 
@@ -51,7 +52,7 @@ async def send_profile_menu(send_func, user):
 async def send_about_captains(send_func):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Главное меню", callback_data="main_menu")]
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
         ]
     )
     await send_func("Здесь будет информация!", reply_markup=keyboard)
@@ -61,7 +62,7 @@ async def send_about_captains(send_func):
 async def send_features(send_func):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Главное меню", callback_data="main_menu")]
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
         ]
     )
     await send_func("Особенности:)", reply_markup=keyboard)
@@ -71,7 +72,7 @@ async def send_features(send_func):
 async def send_interview(send_func):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Главное меню", callback_data="main_menu")]
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
         ]
     )
     await send_func("Собеседование", reply_markup=keyboard)
@@ -81,7 +82,7 @@ async def send_interview(send_func):
 async def send_events(send_func):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Главное меню", callback_data="main_menu")]
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
         ]
     )
     await send_func("Мероприятие: сдача бумаги", reply_markup=keyboard)
@@ -99,6 +100,14 @@ async def cmd_start(message: Message):
 async def cb_main(callback: CallbackQuery):
     await rq.set_user(callback.from_user.id)
     await callback.message.delete()
+    await send_main_menu(callback.message)
+    await callback.answer()
+
+
+# кнопка Главное меню (из /send)
+@router.callback_query(F.data == "main_menu_from_send")
+async def cb_main_from_send(callback: CallbackQuery):
+    await rq.set_user(callback.from_user.id)
     await send_main_menu(callback.message)
     await callback.answer()
 
@@ -166,11 +175,19 @@ async def send_broadcast(message: Message):
 
     success, failed = 0, 0
 
+    user_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu_from_send")]
+        ]
+    )
+
     for user in users:
         try:
-            await message.bot.send_message(user.tg_id, content)
+            await message.bot.send_message(user.tg_id, content, reply_markup=user_keyboard)
             success += 1
         except (TelegramForbiddenError, TelegramBadRequest):
             failed += 1
 
-    await message.answer(f"📣 Рассылка завершена\n\n✅ Отправлено: {success}\n❌ Ошибок: {failed}")
+    await message.answer(
+        f"📣 Рассылка завершена\n\n✅ Отправлено: {success}\n❌ Ошибок: {failed}"
+    )

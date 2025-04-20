@@ -19,8 +19,13 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tg_id: Mapped[int] = mapped_column(BigInteger, unique=True)
-    vk_url: Mapped[str] = mapped_column(String, nullable=True)
     is_subscribed: Mapped[bool] = mapped_column(default=True, server_default="1")
+    surname: Mapped[str] = mapped_column(String, nullable=True)
+    name: Mapped[str] = mapped_column(String, nullable=True)
+    patronymic: Mapped[str] = mapped_column(String, nullable=True)
+    entry_year: Mapped[int] = mapped_column(nullable=True)
+    contact_url: Mapped[str] = mapped_column(String, nullable=True)
+    phone_number: Mapped[str] = mapped_column(String, nullable=True)
 
 
 async def async_mainbd():
