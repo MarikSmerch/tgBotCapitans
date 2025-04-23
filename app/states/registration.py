@@ -2,9 +2,7 @@ from aiogram.fsm.state import StatesGroup, State
 
 
 class FSMRegistration(StatesGroup):
-    surname = State()
-    name = State()
-    patronymic = State()
+    full_name = State()
     entry_year = State()
     phone = State()
     social_link = State()
