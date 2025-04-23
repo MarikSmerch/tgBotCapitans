@@ -68,14 +68,6 @@ async def set_entry_year(tg_id: int, year: int) -> None:
         await session.commit()
 
 
-# Изменение ссылки
-async def set_contact_url(tg_id: int, url: str) -> None:
-    async with async_session() as session:
-        stmt = update(User).where(User.tg_id == tg_id).values(contact_url=url)
-        await session.execute(stmt)
-        await session.commit()
-
-
 # Изменение телефона
 async def set_phone_number(tg_id: int, phone: str) -> None:
     async with async_session() as session:

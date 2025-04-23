@@ -5,4 +5,3 @@ class FSMRegistration(StatesGroup):
     full_name = State()
     entry_year = State()
     phone = State()
-    social_link = State()

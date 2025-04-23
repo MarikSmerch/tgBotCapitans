@@ -11,6 +11,19 @@ import re
 
 router = Router()
 
+user_edit_mode = {}
+user_prompt_message_id = {}
+user_error_message_id = {}
+
+
+def get_edit_profile_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="ФИО", callback_data="edit_fio")],
+        [InlineKeyboardButton(text="Год поступления", callback_data="edit_year")],
+        [InlineKeyboardButton(text="Номер телефона", callback_data="edit_phone")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="show_profile")]
+    ])
+
 
 # Отрисовка главного меню
 async def send_main_menu(message):
@@ -18,7 +31,7 @@ async def send_main_menu(message):
         inline_keyboard=[
             [InlineKeyboardButton(text="Профиль", callback_data="show_profile")],
             [InlineKeyboardButton(text="О Капитанах", callback_data="about_captains")],
-            [InlineKeyboardButton(text="Особенности", callback_data="features")],
+            [InlineKeyboardButton(text="Консультация", callback_data="consultation")],
             [InlineKeyboardButton(text="Собеседование", callback_data="interview")],
             [InlineKeyboardButton(text="Мероприятия", callback_data="events")]
         ]
@@ -42,7 +55,6 @@ async def send_profile_menu(send_func, user):
         f"Имя: {user_p.surname} {user_p.name} {user_p.patronymic}\n"
         f"Год поступления: {user_p.entry_year}\n"
         f"Номер телефона: {hidden_phone}\n"
-        f"Ссылка на вк: {user_p.contact_url}\n"
         f"Юзернейм: @{user.username or '—'}"
     )
 
@@ -75,10 +87,11 @@ async def send_about_captains(send_func):
 async def send_features(send_func):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="Записаться на консультацию", callback_data="appointment_consultation")],
             [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
         ]
     )
-    await send_func("Особенности:)", reply_markup=keyboard)
+    await send_func("Здесь можно записаться на консультацию", reply_markup=keyboard)
 
 
 # Отрисовка информации о собеседованиях
@@ -109,7 +122,7 @@ async def cmd_start(message: Message, state: FSMContext):
     await rq.set_user(user_id)
     user = await rq.get_user_by_tg_id(user_id)
 
-    if not (user.surname and user.name and user.patronymic and user.entry_year and user.phone_number and user.contact_url):
+    if not (user.surname and user.name and user.patronymic and user.entry_year and user.phone_number):
         await state.set_state(FSMRegistration.full_name)
         await message.answer("Добро пожаловать!\n\nВведите Ваше <b>ФИО</b> через пробел:", parse_mode="HTML")
     else:
@@ -158,8 +171,8 @@ async def cb_captains(callback: CallbackQuery):
     await callback.answer()
 
 
-# кнопка Особенности
-@router.callback_query(F.data == "features")
+# кнопка Консультация
+@router.callback_query(F.data == "consultation")
 async def cb_features(callback: CallbackQuery):
     await callback.message.delete()
     await send_features(callback.message.answer)
@@ -258,24 +271,128 @@ async def reg_phone(message: Message, state: FSMContext):
         await message.answer("⚠️ Неверный формат. Попробуйте ещё раз: +7XXXXXXXXXX\nИли укажите -")
         return
     await state.update_data(phone=phone)
-    await state.set_state(FSMRegistration.social_link)
-    await message.answer("Укажите ссылку на вк:")
 
-
-@router.message(FSMRegistration.social_link)
-async def reg_social(message: Message, state: FSMContext):
-    link = message.text.strip()
-    if not link.startswith("http") and link != "-":
-        await message.answer("⚠️ Ссылка должна начинаться с http\nИли укажите -")
-        return
-
-    await state.update_data(contact_url=link)
     data = await state.get_data()
     await rq.set_fio(message.from_user.id, data["surname"], data["name"], data["patronymic"])
     await rq.set_entry_year(message.from_user.id, data["entry_year"])
     await rq.set_phone_number(message.from_user.id, data["phone"])
-    await rq.set_contact_url(message.from_user.id, data["contact_url"])
     await state.clear()
 
     await message.answer("✅ Регистрация завершена!")
     await send_main_menu(message)
+
+
+@router.callback_query(F.data == "edit_profile")
+async def cb_edit_profile(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "Что вы хотите изменить?",
+        reply_markup=get_edit_profile_kb()
+    )
+
+
+@router.callback_query(F.data == "edit_fio")
+async def cb_edit_fio(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    user_edit_mode[user_id] = "fio"
+
+    prompt = await callback.message.edit_text("Введите новое <b>ФИО</b> через пробел:", parse_mode="HTML")
+    user_prompt_message_id[user_id] = prompt.message_id
+    await callback.answer()
+
+
+@router.callback_query(F.data == "edit_phone")
+async def cb_edit_phone_number(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    user_edit_mode[user_id] = "phone"
+
+    prompt = await callback.message.edit_text("Введите ваш <b>номер телефона</b> в формате +7XXXXXXXXXX:", parse_mode="HTML")
+    user_prompt_message_id[user_id] = prompt.message_id
+    await callback.answer()
+
+
+@router.callback_query(F.data == "edit_year")
+async def cb_edit_year(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    user_edit_mode[user_id] = "year"
+
+    await callback.message.edit_text("Выберите год поступления:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="2023", callback_data="year_2023")],
+        [InlineKeyboardButton(text="2024", callback_data="year_2024")],
+        [InlineKeyboardButton(text="2025", callback_data="year_2025")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="edit_profile")]
+    ]))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("year_"))
+async def cb_select_year(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    year = callback.data.split("_")[1]
+
+    if year not in ("2023", "2024", "2025"):
+        return
+
+    await rq.set_entry_year(user_id, int(year))
+
+    user_edit_mode.pop(user_id, None)
+    user_prompt_message_id.pop(user_id, None)
+
+    await callback.message.delete()
+
+    await callback.message.answer(
+        "Что вы хотите изменить?",
+        reply_markup=get_edit_profile_kb()
+    )
+    await callback.answer()
+
+
+@router.message()
+async def msg_edit_profile(message: Message):
+    user_id = message.from_user.id
+
+    if user_id not in user_edit_mode:
+        return
+
+    mode = user_edit_mode[user_id]
+    prompt_id = user_prompt_message_id.get(user_id)
+
+    if mode == "fio":
+        parts = message.text.strip().split()
+        if len(parts) != 3:
+            await message.delete()
+            err = await message.answer("⚠️ Введите ФИО в формате: Фамилия Имя Отчество")
+            user_error_message_id[user_id] = err.message_id
+            return
+        surname, name, patronymic = parts
+        await rq.set_fio(user_id, surname, name, patronymic)
+
+    elif mode == "phone":
+        phone = message.text.strip()
+        if not re.fullmatch(r"\+7\d{3}\d{3}\d{2}\d{2}", phone) and phone != "-":
+            await message.delete()
+            err = await message.answer("⚠️ Неверный формат. Попробуйте ещё раз: +7XXXXXXXXXX\nИли укажите -")
+            user_error_message_id[user_id] = err.message_id
+            return
+        await rq.set_phone_number(user_id, phone)
+
+    user_edit_mode.pop(user_id, None)
+    user_prompt_message_id.pop(user_id, None)
+
+    await message.delete()
+    if prompt_id:
+        try:
+            await message.bot.delete_message(chat_id=message.chat.id, message_id=prompt_id)
+        except:
+            pass
+
+    err_id = user_error_message_id.pop(user_id, None)
+    if err_id:
+        try:
+            await message.bot.delete_message(chat_id=message.chat.id, message_id=err_id)
+        except:
+            pass
+
+    await message.answer(
+        "Что вы хотите изменить?",
+        reply_markup=get_edit_profile_kb()
+    )

@@ -24,7 +24,6 @@ class User(Base):
     name: Mapped[str] = mapped_column(String, nullable=True)
     patronymic: Mapped[str] = mapped_column(String, nullable=True)
     entry_year: Mapped[int] = mapped_column(nullable=True)
-    contact_url: Mapped[str] = mapped_column(String, nullable=True)
     phone_number: Mapped[str] = mapped_column(String, nullable=True)
 
 
