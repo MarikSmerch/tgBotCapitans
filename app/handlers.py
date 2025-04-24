@@ -14,6 +14,7 @@ router = Router()
 user_edit_mode = {}
 user_prompt_message_id = {}
 user_error_message_id = {}
+admin_cons_mode = {}
 
 
 def get_edit_profile_kb():
@@ -22,6 +23,13 @@ def get_edit_profile_kb():
         [InlineKeyboardButton(text="Год поступления", callback_data="edit_year")],
         [InlineKeyboardButton(text="Номер телефона", callback_data="edit_phone")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="show_profile")]
+    ])
+
+
+def get_change_cons_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Добавить дату", callback_data="change_cons_add")],
+        [InlineKeyboardButton(text="Удалить дату", callback_data="change_cons_del")]
     ])
 
 
@@ -114,6 +122,32 @@ async def send_events(send_func):
     await send_func("Мероприятие: сдача бумаги", reply_markup=keyboard)
 
 
+async def send_consultation_slots(send_func, tg_id: int):
+    slots = await rq.get_consultation_slots()
+    user_slot = await rq.get_user_slot(tg_id)
+
+    buttons = []
+    for slot_id, slot_text in slots:
+        label = f"{slot_text}{' ✅' if slot_text == user_slot else ''}"
+        buttons.append([InlineKeyboardButton(text=label, callback_data=f"slot_{slot_id}")])
+
+    # Кнопка возврата в главное меню
+    buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await send_func("Выберите дату консультации:", reply_markup=kb)
+
+
+async def show_slots_list(send_func):
+    slots = await rq.get_consultation_slots()
+    buttons = [
+        [InlineKeyboardButton(text=slot_text, callback_data=f"cons_slot_{slot_id}")]
+        for slot_id, slot_text in slots
+    ]
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await send_func("Доступные даты консультаций:", reply_markup=kb)
+
+
 # /start
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
@@ -173,10 +207,29 @@ async def cb_captains(callback: CallbackQuery):
 
 # кнопка Консультация
 @router.callback_query(F.data == "consultation")
-async def cb_features(callback: CallbackQuery):
+async def cb_consultation(callback: CallbackQuery):
+    await rq.set_user(callback.from_user.id)
     await callback.message.delete()
-    await send_features(callback.message.answer)
+    await send_consultation_slots(callback.message.answer, callback.from_user.id)
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("slot_"))
+async def cb_slot(callback: CallbackQuery):
+    slot_id = int(callback.data.split("_", 1)[1])
+    tg_id = callback.from_user.id
+
+    chosen = await rq.get_slot_by_id(slot_id)
+    current = await rq.get_user_slot(tg_id)
+
+    if current == chosen:
+        await rq.clear_user_slot(tg_id)
+        await callback.answer("Запись отменена")
+    else:
+        await rq.set_user_slot(tg_id, chosen)
+        await callback.answer(f"Вы записаны на {chosen}")
+
+    await send_consultation_slots(callback.message.edit_text, tg_id)
 
 
 # кнопка Собеседование
@@ -192,6 +245,117 @@ async def cb_interview(callback: CallbackQuery):
 async def cb_events(callback: CallbackQuery):
     await callback.message.delete()
     await send_events(callback.message.answer)
+    await callback.answer()
+
+
+@router.message(Command("change_cons"))
+async def cmd_change_cons(message: Message):
+    await message.answer("Выберите действие с датами консультаций:", reply_markup=get_change_cons_kb())
+
+
+@router.callback_query(F.data == "change_cons_add")
+async def cb_change_cons_add(query: CallbackQuery):
+    admin_cons_mode[query.from_user.id] = "add"
+    await query.message.edit_text(
+        "Введите новую дату в формате <b>ДД.ММ ЧЧ:ММ</b>, например `26.06 17:00`",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="⬅️ Отмена", callback_data="change_cons_back")]]
+        )
+    )
+    await query.answer()
+
+
+@router.callback_query(F.data == "change_cons_del")
+async def cb_change_cons_del(query: CallbackQuery):
+    slots = await rq.get_consultation_slots()
+    if not slots:
+        await query.answer("Слотов пока нет", show_alert=True)
+        return await query.message.edit_text("Нет дат для удаления.", reply_markup=get_change_cons_kb())
+
+    buttons = [
+        [InlineKeyboardButton(text=slot_text, callback_data=f"change_cons_delete_{slot_id}")]
+        for slot_id, slot_text in slots
+    ]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="change_cons_back")])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await query.message.edit_text("Выберите дату для удаления:", reply_markup=kb)
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith("change_cons_delete_"))
+async def cb_change_cons_delete(query: CallbackQuery):
+    slot_id = int(query.data.split("_")[-1])
+    await rq.delete_consultation_slot(slot_id)
+    await query.answer("Дата удалена", show_alert=False)
+    await cb_change_cons_del(query)
+
+
+@router.callback_query(F.data == "change_cons_back")
+async def cb_change_cons_back(query: CallbackQuery):
+    admin_cons_mode.pop(query.from_user.id, None)
+    await query.message.edit_text("Выберите действие с датами консультаций:", reply_markup=get_change_cons_kb())
+    await query.answer()
+
+
+@router.message()
+async def handle_add_slot(message: Message):
+    user_id = message.from_user.id
+    if admin_cons_mode.get(user_id) != "add":
+        return
+
+    text = message.text.strip()
+    if not re.fullmatch(r"\d{2}\.\d{2} \d{2}:\d{2}", text):
+        return await message.answer("Неверный формат. Введите, например, `26.06 17:00`.", parse_mode="Markdown")
+
+    try:
+        await rq.add_consultation_slot(text)
+        await message.answer(f"Дата «{text}» успешно добавлена.")
+    except Exception:
+        await message.answer("Ошибка: возможно, такая дата уже существует.")
+    finally:
+        admin_cons_mode.pop(user_id, None)
+        await message.answer("Выберите действие:", reply_markup=get_change_cons_kb())
+
+
+@router.message(Command("cons"))
+async def cmd_cons(message: Message):
+    await show_slots_list(message.answer)
+
+
+@router.callback_query(F.data.startswith("cons_slot_"))
+async def cb_cons_slot(callback: CallbackQuery):
+    slot_id = int(callback.data.split("_", 2)[2])
+    slot_text = await rq.get_slot_by_id(slot_id)
+
+    users = await rq.get_users_by_slot(slot_text)
+
+    if not users:
+        text = f"На <b>{slot_text}</b> ещё никто не записан."
+    else:
+        lines = []
+        for idx, user in enumerate(users, start=1):
+            chat = await callback.bot.get_chat(user.tg_id)
+            username_text = f"@{chat.username}" if chat.username else "(нет юзернейма)"
+            fio = " ".join(filter(None, [user.surname, user.name, user.patronymic])) or "(ФИО не указано)"
+            phone = user.phone_number or "(телефон не указан)"
+            year = user.entry_year or "(год не указан)"
+
+            lines.append(f"{idx}. {fio} | {phone} | {year} | {username_text}")
+
+        text = f"Записанные на <b>{slot_text}</b>:\n" + "\n".join(lines)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="cons_back")]
+    ])
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "cons_back")
+async def cb_cons_back(callback: CallbackQuery):
+    await show_slots_list(callback.message.edit_text)
     await callback.answer()
 
 
@@ -232,7 +396,7 @@ async def reg_full_name(message: Message, state: FSMContext):
     parts = message.text.strip().split()
     if len(parts) != 3:
         await message.answer(
-            "⚠️ Пожалуйста, введи ФИО целиком через пробел, например:\n"
+            "⚠️ Пожалуйста, введите ФИО целиком через пробел, например:\n"
             "Иванов Иван Иванович"
         )
         return
@@ -260,7 +424,7 @@ async def reg_entry_year(callback: CallbackQuery, state: FSMContext):
     year = int(callback.data.split("_")[1])
     await state.update_data(entry_year=year)
     await state.set_state(FSMRegistration.phone)
-    await callback.message.edit_text("Введите ваш <b>номер телефона</b> в формате +7XXXXXXXXXX:", parse_mode="HTML")
+    await callback.message.edit_text("Введите ваш <b>номер телефона</b> в формате +7XXXXXXXXXX или укажите прочерк:", parse_mode="HTML")
     await callback.answer()
 
 
@@ -360,7 +524,7 @@ async def msg_edit_profile(message: Message):
         parts = message.text.strip().split()
         if len(parts) != 3:
             await message.delete()
-            err = await message.answer("⚠️ Введите ФИО в формате: Фамилия Имя Отчество")
+            err = await message.answer("⚠️ Введите ФИО в формате:\nФамилия Имя Отчество")
             user_error_message_id[user_id] = err.message_id
             return
         surname, name, patronymic = parts

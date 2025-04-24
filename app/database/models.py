@@ -25,6 +25,14 @@ class User(Base):
     patronymic: Mapped[str] = mapped_column(String, nullable=True)
     entry_year: Mapped[int] = mapped_column(nullable=True)
     phone_number: Mapped[str] = mapped_column(String, nullable=True)
+    consultation_slot: Mapped[str] = mapped_column(String, nullable=True)
+
+
+class ConsultationSlot(Base):
+    __tablename__ = 'consultation_slots'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slot: Mapped[str] = mapped_column(String, unique=True)
 
 
 async def async_mainbd():

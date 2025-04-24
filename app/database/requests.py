@@ -1,6 +1,6 @@
 from app.database.models import async_session
-from app.database.models import User
-from sqlalchemy import select
+from app.database.models import User, ConsultationSlot
+from sqlalchemy import select, delete
 from sqlalchemy.sql import update
 
 
@@ -79,3 +79,64 @@ async def set_phone_number(tg_id: int, phone: str) -> None:
 async def get_user_by_tg_id(tg_id: int) -> User | None:
     async with async_session() as session:
         return await session.scalar(select(User).where(User.tg_id == tg_id))
+
+
+async def get_consultation_slots():
+    async with async_session() as session:
+        result = await session.execute(select(ConsultationSlot.id, ConsultationSlot.slot))
+        return result.all()  # List[ (id, slot) ]
+
+
+async def get_slot_by_id(slot_id: int) -> str | None:
+    async with async_session() as session:
+        row = await session.get(ConsultationSlot, slot_id)
+        return row.slot if row else None
+
+
+async def get_user_slot(tg_id: int) -> str | None:
+    async with async_session() as session:
+        user = await session.scalar(select(User).where(User.tg_id == tg_id))
+        return user.consultation_slot
+
+
+async def set_user_slot(tg_id: int, slot: str) -> None:
+    async with async_session() as session:
+        stmt = (
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(consultation_slot=slot)
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def clear_user_slot(tg_id: int) -> None:
+    async with async_session() as session:
+        stmt = (
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(consultation_slot=None)
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def get_users_by_slot(slot: str) -> list[User]:
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.consultation_slot == slot)
+        )
+        return result.scalars().all()
+
+
+async def add_consultation_slot(slot: str) -> None:
+    async with async_session() as session:
+        session.add(ConsultationSlot(slot=slot))
+        await session.commit()
+
+
+async def delete_consultation_slot(slot_id: int) -> None:
+    async with async_session() as session:
+        stmt = delete(ConsultationSlot).where(ConsultationSlot.id == slot_id)
+        await session.execute(stmt)
+        await session.commit()
