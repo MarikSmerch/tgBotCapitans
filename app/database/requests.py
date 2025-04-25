@@ -1,5 +1,5 @@
 from app.database.models import async_session
-from app.database.models import User, ConsultationSlot
+from app.database.models import User, ConsultationSlot, InterviewSlot
 from sqlalchemy import select, delete
 from sqlalchemy.sql import update
 
@@ -138,5 +138,66 @@ async def add_consultation_slot(slot: str) -> None:
 async def delete_consultation_slot(slot_id: int) -> None:
     async with async_session() as session:
         stmt = delete(ConsultationSlot).where(ConsultationSlot.id == slot_id)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def get_interview_consultation_slots():
+    async with async_session() as session:
+        result = await session.execute(select(InterviewSlot.id, InterviewSlot.slot))
+        return result.all()  # List[ (id, slot) ]
+
+
+async def get_interview_slot_by_id(slot_id: int) -> str | None:
+    async with async_session() as session:
+        row = await session.get(InterviewSlot, slot_id)
+        return row.slot if row else None
+
+
+async def get_user_slot_interview(tg_id: int) -> str | None:
+    async with async_session() as session:
+        user = await session.scalar(select(User).where(User.tg_id == tg_id))
+        return user.interview_slot
+
+
+async def set_user_slot_interview(tg_id: int, slot: str) -> None:
+    async with async_session() as session:
+        stmt = (
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(interview_slot=slot)
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def clear_user_slot_interview(tg_id: int) -> None:
+    async with async_session() as session:
+        stmt = (
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(interview_slot=None)
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def get_users_by_slot_interview(slot: str) -> list[User]:
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.interview_slot == slot)
+        )
+        return result.scalars().all()
+
+
+async def add_interview_slot(slot: str) -> None:
+    async with async_session() as session:
+        session.add(InterviewSlot(slot=slot))
+        await session.commit()
+
+
+async def delete_interview_slot(slot_id: int) -> None:
+    async with async_session() as session:
+        stmt = delete(InterviewSlot).where(InterviewSlot.id == slot_id)
         await session.execute(stmt)
         await session.commit()

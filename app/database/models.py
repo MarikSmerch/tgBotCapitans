@@ -26,10 +26,20 @@ class User(Base):
     entry_year: Mapped[int] = mapped_column(nullable=True)
     phone_number: Mapped[str] = mapped_column(String, nullable=True)
     consultation_slot: Mapped[str] = mapped_column(String, nullable=True)
+    interview_slot: Mapped[str] = mapped_column(String, nullable=True)
 
 
+# Модель дат для консультации
 class ConsultationSlot(Base):
     __tablename__ = 'consultation_slots'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slot: Mapped[str] = mapped_column(String, unique=True)
+
+
+# Модель дат для собеседования
+class InterviewSlot(Base):
+    __tablename__ = 'interview_slots'
 
     id: Mapped[int] = mapped_column(primary_key=True)
     slot: Mapped[str] = mapped_column(String, unique=True)
