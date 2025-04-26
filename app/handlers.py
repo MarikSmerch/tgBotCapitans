@@ -16,6 +16,8 @@ user_prompt_message_id = {}
 user_error_message_id = {}
 admin_cons_mode = {}
 admin_int_mode = {}
+admin_event_mode = {}
+admin_event_data = {}
 
 
 def get_edit_profile_kb():
@@ -24,6 +26,14 @@ def get_edit_profile_kb():
         [InlineKeyboardButton(text="Год поступления", callback_data="edit_year")],
         [InlineKeyboardButton(text="Номер телефона", callback_data="edit_phone")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="show_profile")]
+    ])
+
+
+def get_events_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Добавить", callback_data="events_add")],
+        [InlineKeyboardButton(text="Изменить", callback_data="events_edit")],
+        [InlineKeyboardButton(text="Удалить", callback_data="events_delete")]
     ])
 
 
@@ -126,7 +136,26 @@ async def send_events(send_func):
             [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
         ]
     )
-    await send_func("Мероприятие: сдача бумаги", reply_markup=keyboard)
+
+    events = await rq.get_all_events()
+    if not events:
+        event_text = "Нет запланированных мероприятий."
+    else:
+        def sort_key(slot: str):
+            date_part = slot.split()[0]
+            try:
+                day_str, month_str = date_part.split(".")
+                day, month = int(day_str), int(month_str)
+                return (month, day)
+            except Exception:
+                return (999, 999)
+
+        sorted_events = sorted(events, key=lambda e: sort_key(e[0]))
+
+        lines = [f"{slot} - {content}" for slot, content in sorted_events]
+        event_text = "📅 Расписание мероприятий:\n\n" + "\n".join(lines)
+
+    await send_func(event_text, reply_markup=keyboard)
 
 
 async def send_consultation_slots(send_func, tg_id: int):
@@ -258,6 +287,221 @@ async def cb_interview_slot(callback: CallbackQuery):
         await callback.answer(f"Вы записаны на собеседование: {chosen}")
 
     await send_interview_slots(callback.message.edit_text, tg_id)
+
+
+@router.message(Command("events"))
+async def cmd_events(message: Message):
+    await message.answer("Управление мероприятиями:", reply_markup=get_events_kb())
+
+
+@router.callback_query(F.data == "events_edit_start")
+async def cmd_events_edit_start(query: CallbackQuery):
+    await query.message.edit_text("Что менять?", reply_markup=get_events_kb())
+    await query.answer()
+
+
+@router.callback_query(F.data == "events_add")
+async def cb_events_add(query: CallbackQuery):
+    admin_event_mode[query.from_user.id] = "add_date"
+    admin_event_data[query.from_user.id] = {}
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Отмена", callback_data="events_add_cancel")]
+    ])
+    await query.message.edit_text(
+        "Введите дату мероприятия в формате <b>ДД.ММ ЧЧ:ММ</b>, например `26.06 17:00`",
+        parse_mode="HTML",
+        reply_markup=kb
+    )
+    await query.answer()
+
+
+@router.callback_query(F.data == "events_add_cancel")
+async def cb_events_add_cancel(query: CallbackQuery):
+    admin_event_mode.pop(query.from_user.id, None)
+    admin_event_data.pop(query.from_user.id, None)
+    await query.message.edit_text("Операция добавления отменена.", reply_markup=get_events_kb())
+    await query.answer()
+
+
+@router.message(StateFilter(None),
+                lambda message: admin_event_mode.get(message.from_user.id) == "add_date")
+async def msg_events_add_date(message: Message):
+    user_id = message.from_user.id
+    if admin_event_mode.get(user_id) != "add_date":
+        return
+    date_text = message.text.strip()
+    admin_event_data[user_id]["date"] = date_text
+    admin_event_mode[user_id] = "add_content"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Отмена", callback_data="events_add_cancel")]
+    ])
+    await message.answer(
+        f"Дата сохранена: <b>{date_text}</b>\nТеперь введите содержимое мероприятия.",
+        parse_mode="HTML",
+        reply_markup=kb
+    )
+
+
+@router.message(StateFilter(None),
+                lambda message: admin_event_mode.get(message.from_user.id) == "add_content")
+async def msg_events_add_content(message: Message):
+    user_id = message.from_user.id
+    if admin_event_mode.get(user_id) != "add_content":
+        return
+    content = message.text.strip()
+    date_text = admin_event_data[user_id]["date"]
+    admin_event_data[user_id]["content"] = content
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Да", callback_data="events_add_confirm")],
+        [InlineKeyboardButton(text="Нет", callback_data="events_add_cancel")]
+    ])
+    await message.answer(
+        f"Добавить мероприятие?\n<code>{date_text} - {content}</code>",
+        parse_mode="HTML",
+        reply_markup=kb
+    )
+
+
+@router.callback_query(F.data == "events_add_confirm")
+async def cb_events_add_confirm(query: CallbackQuery):
+    user_id = query.from_user.id
+    data = admin_event_data.get(user_id, {})
+    await rq.add_event(data["date"], data["content"])
+    admin_event_mode.pop(user_id, None)
+    admin_event_data.pop(user_id, None)
+    await query.message.edit_text("Мероприятие добавлено.", reply_markup=get_events_kb())
+    await query.answer()
+
+
+@router.callback_query(F.data == "events_edit")
+async def cb_events_edit(query: CallbackQuery):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Дата", callback_data="events_edit_date")],
+        [InlineKeyboardButton(text="Содержимое", callback_data="events_edit_content")],
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="events_edit_start")]
+    ])
+    await query.message.edit_text("Что менять?", reply_markup=kb)
+    await query.answer()
+
+
+@router.callback_query(F.data == "events_edit_date")
+async def cb_events_edit_date(query: CallbackQuery):
+    slots = await rq.get_all_events()
+    buttons = [[InlineKeyboardButton(text=slot, callback_data=f"events_edit_date_sel|{slot}")]
+               for slot, _ in slots]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="events_edit")])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await query.message.edit_text("Выберите мероприятие по дате:", reply_markup=kb)
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith("events_edit_date_sel|"))
+async def cb_events_edit_date_sel(query: CallbackQuery):
+    _, slot = query.data.split("|", 1)
+    admin_event_mode[query.from_user.id] = "edit_set_date"
+    admin_event_data[query.from_user.id] = {"old_date": slot}
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Отмена", callback_data="events_edit")]
+    ])
+    await query.message.edit_text(
+        f"Введите новую дату вместо <b>{slot}</b>:", parse_mode="HTML", reply_markup=kb
+    )
+    await query.answer()
+
+
+@router.message(StateFilter(None),
+                lambda message: admin_event_mode.get(message.from_user.id) == "edit_set_date")
+async def msg_events_edit_set_date(message: Message):
+    user_id = message.from_user.id
+    if admin_event_mode.get(user_id) != "edit_set_date":
+        return
+    new_date = message.text.strip()
+    old_date = admin_event_data[user_id]["old_date"]
+    await rq.update_event_date(old_date, new_date)
+    admin_event_mode.pop(user_id, None)
+    admin_event_data.pop(user_id, None)
+    await message.answer("Дата мероприятия обновлена.", reply_markup=get_events_kb())
+
+
+@router.callback_query(F.data == "events_edit_content")
+async def cb_events_edit_content(query: CallbackQuery):
+    slots = await rq.get_all_events()
+    buttons = [[InlineKeyboardButton(text=slot, callback_data=f"events_edit_content_sel|{slot}")]
+               for slot, _ in slots]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="events_edit")])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await query.message.edit_text("Выберите мероприятие для редактирования содержимого:", reply_markup=kb)
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith("events_edit_content_sel|"))
+async def cb_events_edit_content_sel(query: CallbackQuery):
+    _, slot = query.data.split("|", 1)
+    admin_event_mode[query.from_user.id] = "edit_set_content"
+    admin_event_data[query.from_user.id] = {"old_date": slot}
+    event = await rq.get_event_by_date(slot)
+    old_content = event.content if event else ""
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Отмена", callback_data="events_edit")]
+    ])
+    await query.message.edit_text(
+        f"Старое содержимое:\n<code>{old_content}</code>\nВведите новое содержимое:",
+        parse_mode="HTML",
+        reply_markup=kb
+    )
+    await query.answer()
+
+
+@router.message(StateFilter(None),
+                lambda message: admin_event_mode.get(message.from_user.id) == "edit_set_content")
+async def msg_events_edit_set_content(message: Message):
+    user_id = message.from_user.id
+    if admin_event_mode.get(user_id) != "edit_set_content":
+        return
+    new_content = message.text.strip()
+    old_date = admin_event_data[user_id]["old_date"]
+    await rq.update_event_content_by_date(old_date, new_content)
+    admin_event_mode.pop(user_id, None)
+    admin_event_data.pop(user_id, None)
+    await message.answer("Содержимое мероприятия обновлено.", reply_markup=get_events_kb())
+
+
+@router.callback_query(F.data == "events_delete")
+async def cb_events_delete(query: CallbackQuery):
+    slots = await rq.get_all_events()
+    buttons = [[InlineKeyboardButton(text=slot, callback_data=f"events_delete_sel|{slot}")]
+               for slot, _ in slots]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="events_edit_start")])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await query.message.edit_text("Выберите мероприятие для удаления:", reply_markup=kb)
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith("events_delete_sel|"))
+async def cb_events_delete_sel(query: CallbackQuery):
+    _, slot = query.data.split("|", 1)
+    event = await rq.get_event_by_date(slot)
+    content = event.content if event else ""
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Удалить", callback_data=f"events_delete_confirm|{slot}" )],
+        [InlineKeyboardButton(text="⬅️ Отменить", callback_data="events_delete_cancel")]
+    ])
+    await query.message.edit_text(f"Удалить мероприятие?\n<code>{slot} - {content}</code>", parse_mode="HTML", reply_markup=kb)
+    await query.answer()
+
+
+@router.callback_query(F.data == "events_delete_cancel")
+async def cb_events_delete_cancel(query: CallbackQuery):
+    await query.message.edit_text("Удаление отменено.", reply_markup=get_events_kb())
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith("events_delete_confirm|"))
+async def cb_events_delete_confirm(query: CallbackQuery):
+    _, slot = query.data.split("|", 1)
+    await rq.delete_event_by_date(slot)
+    await query.message.edit_text("Мероприятие удалено.", reply_markup=get_events_kb())
+    await query.answer()
 
 
 @router.message(Command("change_interview"))

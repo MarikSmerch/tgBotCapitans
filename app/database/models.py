@@ -45,6 +45,14 @@ class InterviewSlot(Base):
     slot: Mapped[str] = mapped_column(String, unique=True)
 
 
+class EventSlot(Base):
+    __tablename__ = 'event_slot'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slot: Mapped[str] = mapped_column(String, unique=True)
+    content: Mapped[str] = mapped_column(String)
+
+
 async def async_mainbd():
     async with engin.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

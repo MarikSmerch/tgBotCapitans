@@ -1,5 +1,5 @@
 from app.database.models import async_session
-from app.database.models import User, ConsultationSlot, InterviewSlot
+from app.database.models import User, ConsultationSlot, InterviewSlot, EventSlot
 from sqlalchemy import select, delete
 from sqlalchemy.sql import update
 
@@ -199,5 +199,54 @@ async def add_interview_slot(slot: str) -> None:
 async def delete_interview_slot(slot_id: int) -> None:
     async with async_session() as session:
         stmt = delete(InterviewSlot).where(InterviewSlot.id == slot_id)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def get_all_events() -> list[EventSlot]:
+    async with async_session() as session:
+        result = await session.execute(select(EventSlot.slot, EventSlot.content))
+        return result.all()
+
+
+async def get_event_by_date(date: str) -> EventSlot | None:
+    async with async_session() as session:
+        result = await session.execute(
+            select(EventSlot).where(EventSlot.slot == date)
+        )
+        return result.scalar_one_or_none()
+
+
+async def delete_event_by_date(date: str) -> None:
+    async with async_session() as session:
+        stmt = delete(EventSlot).where(EventSlot.slot == date)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def add_event(date: str, content: str) -> None:
+    async with async_session() as session:
+        session.add(EventSlot(slot=date, content=content))
+        await session.commit()
+
+
+async def update_event_content_by_date(date: str, new_content: str) -> None:
+    async with async_session() as session:
+        stmt = (
+            update(EventSlot)
+            .where(EventSlot.slot == date)
+            .values(content=new_content)
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def update_event_date(old_date: str, new_date: str) -> None:
+    async with async_session() as session:
+        stmt = (
+            update(EventSlot)
+            .where(EventSlot.slot == old_date)
+            .values(slot=new_date)
+        )
         await session.execute(stmt)
         await session.commit()
