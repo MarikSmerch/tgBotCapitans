@@ -7,6 +7,11 @@ import app.database.requests as rq
 from aiogram.fsm.context import FSMContext
 from app.states.registration import FSMRegistration
 
+import pandas as pd
+from io import BytesIO
+from tempfile import NamedTemporaryFile
+import os
+
 import re
 
 router = Router()
@@ -56,7 +61,7 @@ async def send_main_menu(message):
         ]
     )
     caption = "Добро пожаловать!"
-    await message.answer_photo(photo=FSInputFile("C:\\Users\\aramb\\projects\\tgBotCapitans\\app\\img\\cards.jpg"), caption=caption, reply_markup=keyboard)
+    await message.answer_photo(photo=FSInputFile("C:\\Users\\aramb\\projects\\tgBotCapitans\\app\\img\\menu.png"), caption=caption, reply_markup=keyboard)
 
 
 # Отрисовка профиля с кнопкой подписки
@@ -538,6 +543,46 @@ async def cb_change_int_del(query: CallbackQuery):
 
     await query.message.edit_text("Выберите дату для удаления:", reply_markup=kb)
     await query.answer()
+
+
+@router.message(Command("file"))
+async def cmd_file(message: Message):
+    users = await rq.get_all_users()
+
+    data = [
+        {
+            "id": u.id,
+            "tg_id": u.tg_id,
+            "is_subscribed": u.is_subscribed,
+            "surname": u.surname,
+            "name": u.name,
+            "patronymic": u.patronymic,
+            "entry_year": u.entry_year,
+            "phone_number": u.phone_number,
+            "consultation_slot": u.consultation_slot,
+            "interview_slot": u.interview_slot,
+        }
+        for u in users
+    ]
+
+    df = pd.DataFrame(data)
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="users")
+    buffer.seek(0)
+
+    with NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp.write(buffer.read())
+        tmp_path = tmp.name
+
+    try:
+        excel = FSInputFile(path=tmp_path, filename="Пользователи.xlsx")
+        await message.answer_document(
+            excel,
+            caption="Excel-файл со всеми пользователями"
+        )
+    finally:
+        os.remove(tmp_path)
 
 
 @router.message(Command("int"))

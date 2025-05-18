@@ -250,3 +250,9 @@ async def update_event_date(old_date: str, new_date: str) -> None:
         )
         await session.execute(stmt)
         await session.commit()
+
+
+async def get_all_users() -> list[User]:
+    async with async_session() as session:
+        result = await session.execute(select(User))
+        return result.scalars().all()
