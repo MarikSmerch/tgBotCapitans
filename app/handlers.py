@@ -56,7 +56,7 @@ async def send_main_menu(message):
         ]
     )
     caption = "Добро пожаловать!"
-    await message.answer_photo(photo=FSInputFile("C:\\Users\\aramb\\projects\\tgBotCapitans\\app\\img\\cards.jpg"), caption=caption, reply_markup=keyboard)
+    await message.answer_photo(photo=FSInputFile("C:\\Users\\aramb\\projects\\tgBotCapitans\\app\\img\\menu.png"), caption=caption, reply_markup=keyboard)
 
 
 # Отрисовка профиля с кнопкой подписки
@@ -772,8 +772,8 @@ async def cb_cons_back(callback: CallbackQuery):
 # команда /send
 @router.message(Command("send"))
 async def send_broadcast(message: Message):
-    if message.from_user.id != 807480894:
-        return await message.answer("🚫 У тебя нет прав использовать эту команду.")
+    # if message.from_user.id != 807480894:
+    #     return
 
     content = message.text.removeprefix("/send").strip()
     if not content:
