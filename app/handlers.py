@@ -817,8 +817,8 @@ async def cb_cons_back(callback: CallbackQuery):
 # команда /send
 @router.message(Command("send"))
 async def send_broadcast(message: Message):
-    if message.from_user.id != 807480894:
-        return await message.answer("🚫 У тебя нет прав использовать эту команду.")
+    # if message.from_user.id != 807480894:
+    #     return
 
     content = message.text.removeprefix("/send").strip()
     if not content:
