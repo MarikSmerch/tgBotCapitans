@@ -1,5 +1,6 @@
 from app.database.models import async_session
-from app.database.models import User, ConsultationSlot, InterviewSlot, EventSlot
+from app.database.models import User, ConsultationSlot, InterviewSlot
+from app.database.models import EventSlot
 from sqlalchemy import select, delete
 from sqlalchemy.sql import update
 
@@ -49,7 +50,7 @@ async def get_all_subscribed_users():
         return result.scalars().all()
 
 
-async def set_fio(tg_id: int, surname: str, name: str, patronymic: str) -> None:
+async def set_fio(tg_id: int, surname: str, name: str, patronymic: str):
     async with async_session() as session:
         stmt = (
             update(User)
@@ -71,7 +72,8 @@ async def set_entry_year(tg_id: int, year: int) -> None:
 # Изменение телефона
 async def set_phone_number(tg_id: int, phone: str) -> None:
     async with async_session() as session:
-        stmt = update(User).where(User.tg_id == tg_id).values(phone_number=phone)
+        stmt = update(User).where((User.tg_id == tg_id)
+                                  .values(phone_number=phone))
         await session.execute(stmt)
         await session.commit()
 
@@ -85,7 +87,8 @@ async def set_city(tg_id: int, city: str) -> None:
 
 async def set_direction(tg_id: int, direction: str) -> None:
     async with async_session() as session:
-        stmt = update(User).where(User.tg_id == tg_id).values(direction=direction)
+        stmt = update(User).where((User.tg_id == tg_id)
+                                  .values(direction=direction))
         await session.execute(stmt)
         await session.commit()
 
@@ -97,7 +100,8 @@ async def get_user_by_tg_id(tg_id: int) -> User | None:
 
 async def get_consultation_slots():
     async with async_session() as session:
-        result = await session.execute(select(ConsultationSlot.id, ConsultationSlot.slot))
+        result = await session.execute(select(ConsultationSlot.id,
+                                              ConsultationSlot.slot))
         return result.all()  # List[ (id, slot) ]
 
 
@@ -158,7 +162,8 @@ async def delete_consultation_slot(slot_id: int) -> None:
 
 async def get_interview_consultation_slots():
     async with async_session() as session:
-        result = await session.execute(select(InterviewSlot.id, InterviewSlot.slot))
+        result = await session.execute(select(InterviewSlot.id,
+                                              InterviewSlot.slot))
         return result.all()  # List[ (id, slot) ]
 
 
@@ -219,7 +224,8 @@ async def delete_interview_slot(slot_id: int) -> None:
 
 async def get_all_events() -> list[EventSlot]:
     async with async_session() as session:
-        result = await session.execute(select(EventSlot.slot, EventSlot.content))
+        result = await session.execute(select(EventSlot.slot,
+                                              EventSlot.content))
         return result.all()
 
 

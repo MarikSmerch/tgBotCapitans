@@ -155,7 +155,8 @@ async def send_users_excel(users, caption, message):
     os.remove(filename)
 
 
-async def safe_answer(callback: CallbackQuery, text: str = None, show_alert=False):
+async def safe_answer(callback: CallbackQuery, text: str = None,
+                      show_alert=False):
     try:
         await callback.answer(text=text, show_alert=show_alert)
     except TelegramBadRequest as e:
@@ -400,6 +401,7 @@ async def cmd_start(message: Message, state: FSMContext):
         await message.answer(
             "Добро пожаловать!\n\n"
             "Введите Ваше <b>ФИО</b> через пробел:\n\n"
+            "Пример:\n<b>Иванов Иван Иванович</b>\n\n"
             "Заполняя данные, я даю свое согласие на обработку "
             "моих персональных данных в соответствии с Федеральным "
             "законом от 27.07.2006 №152-ФЗ «О персональных данных», "
@@ -481,7 +483,8 @@ async def cb_interview_slot(callback: CallbackQuery):
 @router.message(Command("events"))
 @admin_only
 async def cmd_events(message: Message):
-    await message.answer("Управление мероприятиями:", reply_markup=get_events_kb())
+    await message.answer("Управление мероприятиями:",
+                         reply_markup=get_events_kb())
 
 
 @router.callback_query(F.data == "events_edit_start")
@@ -495,10 +498,12 @@ async def cb_events_add(query: CallbackQuery):
     admin_event_mode[query.from_user.id] = "add_date"
     admin_event_data[query.from_user.id] = {}
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Отмена", callback_data="events_add_cancel")]
+        [InlineKeyboardButton(text="⬅️ Отмена",
+                              callback_data="events_add_cancel")]
     ])
     await query.message.edit_text(
-        "Введите дату мероприятия в формате <b>ДД.ММ ЧЧ:ММ</b>, например `26.06 17:00`",
+        "Введите дату мероприятия в формате <b>ДД.ММ ЧЧ:ММ</b>,"
+        " например `26.06 17:00`",
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -509,12 +514,14 @@ async def cb_events_add(query: CallbackQuery):
 async def cb_events_add_cancel(query: CallbackQuery):
     admin_event_mode.pop(query.from_user.id, None)
     admin_event_data.pop(query.from_user.id, None)
-    await query.message.edit_text("Операция добавления отменена.", reply_markup=get_events_kb())
+    await query.message.edit_text("Операция добавления отменена.",
+                                  reply_markup=get_events_kb())
     await query.answer()
 
 
 @router.message(StateFilter(None),
-                lambda message: admin_event_mode.get(message.from_user.id) == "add_date")
+                lambda message: (admin_event_mode
+                                 .get(message.from_user.id) == "add_date"))
 async def msg_events_add_date(message: Message):
     user_id = message.from_user.id
     if admin_event_mode.get(user_id) != "add_date":
@@ -523,17 +530,20 @@ async def msg_events_add_date(message: Message):
     admin_event_data[user_id]["date"] = date_text
     admin_event_mode[user_id] = "add_content"
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Отмена", callback_data="events_add_cancel")]
+        [InlineKeyboardButton(text="⬅️ Отмена",
+                              callback_data="events_add_cancel")]
     ])
     await message.answer(
-        f"Дата сохранена: <b>{date_text}</b>\nТеперь введите содержимое мероприятия.",
+        f"Дата сохранена: <b>{date_text}</b>"
+        "\nТеперь введите содержимое мероприятия.",
         parse_mode="HTML",
         reply_markup=kb
     )
 
 
 @router.message(StateFilter(None),
-                lambda message: admin_event_mode.get(message.from_user.id) == "add_content")
+                lambda message: (admin_event_mode
+                                 .get(message.from_user.id) == "add_content"))
 async def msg_events_add_content(message: Message):
     user_id = message.from_user.id
     if admin_event_mode.get(user_id) != "add_content":
@@ -559,16 +569,20 @@ async def cb_events_add_confirm(query: CallbackQuery):
     await rq.add_event(data["date"], data["content"])
     admin_event_mode.pop(user_id, None)
     admin_event_data.pop(user_id, None)
-    await query.message.edit_text("Мероприятие добавлено.", reply_markup=get_events_kb())
+    await query.message.edit_text("Мероприятие добавлено.",
+                                  reply_markup=get_events_kb())
     await query.answer()
 
 
 @router.callback_query(F.data == "events_edit")
 async def cb_events_edit(query: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Дата", callback_data="events_edit_date")],
-        [InlineKeyboardButton(text="Содержимое", callback_data="events_edit_content")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="events_edit_start")]
+        [InlineKeyboardButton(text="Дата",
+                              callback_data="events_edit_date")],
+        [InlineKeyboardButton(text="Содержимое",
+                              callback_data="events_edit_content")],
+        [InlineKeyboardButton(text="⬅️ Назад",
+                              callback_data="events_edit_start")]
     ])
     await query.message.edit_text("Что менять?", reply_markup=kb)
     await query.answer()
@@ -577,11 +591,20 @@ async def cb_events_edit(query: CallbackQuery):
 @router.callback_query(F.data == "events_edit_date")
 async def cb_events_edit_date(query: CallbackQuery):
     slots = await rq.get_all_events()
-    buttons = [[InlineKeyboardButton(text=slot, callback_data=f"events_edit_date_sel|{slot}")]
-               for slot, _ in slots]
-    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="events_edit")])
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text=slot,
+                callback_data=f"events_edit_date_sel|{slot}"
+            )
+        ]
+        for slot, _ in slots
+    ]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад",
+                                         callback_data="events_edit")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await query.message.edit_text("Выберите мероприятие по дате:", reply_markup=kb)
+    await query.message.edit_text("Выберите мероприятие по дате:",
+                                  reply_markup=kb)
     await query.answer()
 
 
@@ -594,13 +617,16 @@ async def cb_events_edit_date_sel(query: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Отмена", callback_data="events_edit")]
     ])
     await query.message.edit_text(
-        f"Введите новую дату вместо <b>{slot}</b>:", parse_mode="HTML", reply_markup=kb
+        f"Введите новую дату вместо <b>{slot}</b>:", parse_mode="HTML",
+        reply_markup=kb
     )
     await query.answer()
 
 
 @router.message(StateFilter(None),
-                lambda message: admin_event_mode.get(message.from_user.id) == "edit_set_date")
+                lambda message: (admin_event_mode
+                                 .get(message
+                                      .from_user.id) == "edit_set_date"))
 async def msg_events_edit_set_date(message: Message):
     user_id = message.from_user.id
     if admin_event_mode.get(user_id) != "edit_set_date":
@@ -610,17 +636,28 @@ async def msg_events_edit_set_date(message: Message):
     await rq.update_event_date(old_date, new_date)
     admin_event_mode.pop(user_id, None)
     admin_event_data.pop(user_id, None)
-    await message.answer("Дата мероприятия обновлена.", reply_markup=get_events_kb())
+    await message.answer("Дата мероприятия обновлена.",
+                         reply_markup=get_events_kb())
 
 
 @router.callback_query(F.data == "events_edit_content")
 async def cb_events_edit_content(query: CallbackQuery):
     slots = await rq.get_all_events()
-    buttons = [[InlineKeyboardButton(text=slot, callback_data=f"events_edit_content_sel|{slot}")]
-               for slot, _ in slots]
-    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="events_edit")])
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text=slot,
+                callback_data=f"events_edit_content_sel|{slot}"
+            )
+        ]
+        for slot, _ in slots
+    ]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад",
+                                         callback_data="events_edit")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await query.message.edit_text("Выберите мероприятие для редактирования содержимого:", reply_markup=kb)
+    await query.message.edit_text("Выберите мероприятие"
+                                  " для редактирования содержимого:",
+                                  reply_markup=kb)
     await query.answer()
 
 
@@ -635,7 +672,8 @@ async def cb_events_edit_content_sel(query: CallbackQuery):
         [InlineKeyboardButton(text="⬅️ Отмена", callback_data="events_edit")]
     ])
     await query.message.edit_text(
-        f"Старое содержимое:\n<code>{old_content}</code>\nВведите новое содержимое:",
+        f"Старое содержимое:\n<code>{old_content}</code>"
+        "\nВведите новое содержимое:",
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -643,7 +681,9 @@ async def cb_events_edit_content_sel(query: CallbackQuery):
 
 
 @router.message(StateFilter(None),
-                lambda message: admin_event_mode.get(message.from_user.id) == "edit_set_content")
+                lambda message: (admin_event_mode
+                                 .get(message
+                                      .from_user.id) == "edit_set_content"))
 async def msg_events_edit_set_content(message: Message):
     user_id = message.from_user.id
     if admin_event_mode.get(user_id) != "edit_set_content":
@@ -653,17 +693,27 @@ async def msg_events_edit_set_content(message: Message):
     await rq.update_event_content_by_date(old_date, new_content)
     admin_event_mode.pop(user_id, None)
     admin_event_data.pop(user_id, None)
-    await message.answer("Содержимое мероприятия обновлено.", reply_markup=get_events_kb())
+    await message.answer("Содержимое мероприятия обновлено.",
+                         reply_markup=get_events_kb())
 
 
 @router.callback_query(F.data == "events_delete")
 async def cb_events_delete(query: CallbackQuery):
     slots = await rq.get_all_events()
-    buttons = [[InlineKeyboardButton(text=slot, callback_data=f"events_delete_sel|{slot}")]
-               for slot, _ in slots]
-    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="events_edit_start")])
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text=slot,
+                callback_data=f"events_delete_sel|{slot}"
+            )
+        ]
+        for slot, _ in slots
+    ]
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад",
+                                         callback_data="events_edit_start")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await query.message.edit_text("Выберите мероприятие для удаления:", reply_markup=kb)
+    await query.message.edit_text("Выберите мероприятие для удаления:",
+                                  reply_markup=kb)
     await query.answer()
 
 
@@ -673,16 +723,21 @@ async def cb_events_delete_sel(query: CallbackQuery):
     event = await rq.get_event_by_date(slot)
     content = event.content if event else ""
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Удалить", callback_data=f"events_delete_confirm|{slot}" )],
-        [InlineKeyboardButton(text="⬅️ Отменить", callback_data="events_delete_cancel")]
+        [InlineKeyboardButton(text="Удалить",
+                              callback_data=f"events_delete_confirm|{slot}")],
+        [InlineKeyboardButton(text="⬅️ Отменить",
+                              callback_data="events_delete_cancel")]
     ])
-    await query.message.edit_text(f"Удалить мероприятие?\n<code>{slot} - {content}</code>", parse_mode="HTML", reply_markup=kb)
+    await query.message.edit_text(f"Удалить мероприятие?"
+                                  f"\n<code>{slot} - {content}</code>",
+                                  parse_mode="HTML", reply_markup=kb)
     await query.answer()
 
 
 @router.callback_query(F.data == "events_delete_cancel")
 async def cb_events_delete_cancel(query: CallbackQuery):
-    await query.message.edit_text("Удаление отменено.", reply_markup=get_events_kb())
+    await query.message.edit_text("Удаление отменено.",
+                                  reply_markup=get_events_kb())
     await query.answer()
 
 
@@ -690,24 +745,28 @@ async def cb_events_delete_cancel(query: CallbackQuery):
 async def cb_events_delete_confirm(query: CallbackQuery):
     _, slot = query.data.split("|", 1)
     await rq.delete_event_by_date(slot)
-    await query.message.edit_text("Мероприятие удалено.", reply_markup=get_events_kb())
+    await query.message.edit_text("Мероприятие удалено.",
+                                  reply_markup=get_events_kb())
     await query.answer()
 
 
-@router.message(Command("change_interview"))
+@router.message(Command("change_int"))
 @admin_only
 async def cmd_change_interview(message: Message):
-    await message.answer("Выберите действие с датами собеседований:", reply_markup=get_change_int_kb())
+    await message.answer("Выберите действие с датами собеседований:",
+                         reply_markup=get_change_int_kb())
 
 
 @router.callback_query(F.data == "change_int_add")
 async def cb_change_int_add(query: CallbackQuery):
     admin_int_mode[query.from_user.id] = "add"
     await query.message.edit_text(
-        "Введите новую дату в формате <b>ДД.ММ ЧЧ:ММ</b>, например `26.06 17:00`",
+        "Введите новую дату в формате <b>ДД.ММ ЧЧ:ММ</b>,"
+        " например `26.06 17:00`",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⬅️ Отмена", callback_data="change_interview_back")]
+            [InlineKeyboardButton(text="⬅️ Отмена",
+                                  callback_data="change_interview_back")]
         ])
     )
     await query.answer()
@@ -718,16 +777,22 @@ async def cb_change_int_del(query: CallbackQuery):
     slots = await rq.get_interview_consultation_slots()
     if not slots:
         await query.answer("Слотов пока нет", show_alert=True)
-        return await query.message.edit_text("Нет дат для удаления.", reply_markup=get_change_int_kb())
+        return await query.message.edit_text("Нет дат для удаления.",
+                                             reply_markup=get_change_int_kb())
 
     buttons = [
-        [InlineKeyboardButton(text=slot_text, callback_data=f"change_int_delete_{slot_id}")]
+        [InlineKeyboardButton(text=slot_text,
+                              callback_data=f"change_int_delete_{slot_id}")]
         for slot_id, slot_text in slots
     ]
-    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="change_interview_back")])
+    buttons.append(
+        [InlineKeyboardButton(text="⬅️ Назад",
+                              callback_data="change_interview_back")]
+    )
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    await query.message.edit_text("Выберите дату для удаления:", reply_markup=kb)
+    await query.message.edit_text("Выберите дату для удаления:",
+                                  reply_markup=kb)
     await query.answer()
 
 
@@ -735,22 +800,31 @@ async def cb_change_int_del(query: CallbackQuery):
 @admin_only
 async def cmd_file(message: Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Все пользователи", callback_data="file_all")],
-        [InlineKeyboardButton(text="Консультации", callback_data="file_consult")],
-        [InlineKeyboardButton(text="Собеседования", callback_data="file_interview")]
+        [InlineKeyboardButton(text="Все пользователи",
+                              callback_data="file_all")],
+        [InlineKeyboardButton(text="Консультации",
+                              callback_data="file_consult")],
+        [InlineKeyboardButton(text="Собеседования",
+                              callback_data="file_interview")]
     ])
-    await message.answer("Выберите, какой файл вы хотите получить:", reply_markup=kb)
+    await message.answer("Выберите, какой файл вы хотите получить:",
+                         reply_markup=kb)
 
 
 @router.callback_query(F.data == "file")
 @admin_only
 async def file_back(callback: CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Все пользователи", callback_data="file_all")],
-        [InlineKeyboardButton(text="Консультации", callback_data="file_consult")],
-        [InlineKeyboardButton(text="Собеседования", callback_data="file_interview")]
+        [InlineKeyboardButton(text="Все пользователи",
+                              callback_data="file_all")],
+        [InlineKeyboardButton(text="Консультации",
+                              callback_data="file_consult")],
+        [InlineKeyboardButton(text="Собеседования",
+                              callback_data="file_interview")]
     ])
-    await callback.message.edit_text("Выберите, какой файл вы хотите получить:", reply_markup=kb)
+    await callback.message.edit_text("Выберите,"
+                                     " какой файл вы хотите получить:",
+                                     reply_markup=kb)
     await safe_answer(callback)
 
 
@@ -762,11 +836,13 @@ async def file_consult(callback: CallbackQuery):
         return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=slot_text, callback_data=f"file_consult_date_{slot_id}")]
+        [InlineKeyboardButton(text=slot_text,
+                              callback_data=f"file_consult_date_{slot_id}")]
         for slot_id, slot_text in slots
     ] + [[InlineKeyboardButton(text="⬅️ Назад", callback_data="file")]])
 
-    await callback.message.edit_text("Выберите дату консультации:", reply_markup=kb)
+    await callback.message.edit_text("Выберите дату консультации:",
+                                     reply_markup=kb)
 
 
 @router.callback_query(F.data.startswith("file_consult_date_"))
@@ -776,10 +852,12 @@ async def file_by_consult_date(callback: CallbackQuery):
     users = await rq.get_users_by_slot(slot_text)
 
     if not users:
-        await safe_answer(callback, "Нет записей на эту дату.", show_alert=True)
+        await safe_answer(callback, "Нет записей на эту дату.",
+                          show_alert=True)
         return
 
-    await send_users_excel(users, caption=f"Консультация: {slot_text}", message=callback.message)
+    await send_users_excel(users, caption=f"Консультация: {slot_text}",
+                           message=callback.message)
     await safe_answer(callback)
 
 
@@ -791,11 +869,13 @@ async def file_interview(callback: CallbackQuery):
         return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=slot_text, callback_data=f"file_interview_date_{slot_id}")]
+        [InlineKeyboardButton(text=slot_text,
+                              callback_data=f"file_interview_date_{slot_id}")]
         for slot_id, slot_text in slots
     ] + [[InlineKeyboardButton(text="⬅️ Назад", callback_data="file")]])
 
-    await callback.message.edit_text("Выберите дату собеседования:", reply_markup=kb)
+    await callback.message.edit_text("Выберите дату собеседования:",
+                                     reply_markup=kb)
 
 
 @router.callback_query(F.data.startswith("file_interview_date_"))
@@ -805,10 +885,12 @@ async def file_by_interview_date(callback: CallbackQuery):
     users = await rq.get_users_by_slot_interview(slot_text)
 
     if not users:
-        await safe_answer(callback, "Нет записей на эту дату.", show_alert=True)
+        await safe_answer(callback, "Нет записей на эту дату.",
+                          show_alert=True)
         return
 
-    await send_users_excel(users, caption=f"Собеседование: {slot_text}", message=callback.message)
+    await send_users_excel(users, caption=f"Собеседование: {slot_text}",
+                           message=callback.message)
     await safe_answer(callback)
 
 
@@ -820,7 +902,8 @@ async def file_all(callback: CallbackQuery):
         await safe_answer(callback, "Нет пользователей.", show_alert=True)
         return
 
-    await send_users_excel(users, caption="Все пользователи", message=callback.message)
+    await send_users_excel(users, caption="Все пользователи",
+                           message=callback.message)
     await safe_answer(callback)
 
 
@@ -842,8 +925,15 @@ async def cb_int_slot(callback: CallbackQuery):
         lines = []
         for idx, user in enumerate(users, start=1):
             chat = await callback.bot.get_chat(user.tg_id)
-            username_text = f"@{chat.username}" if chat.username else "(нет юзернейма)"
-            fio = " ".join(filter(None, [user.surname, user.name, user.patronymic])) or "(ФИО не указано)"
+            username_text = (
+                f"@{chat.username}" if chat.username else "(нет юзернейма)"
+            )
+            fio = (
+                " ".join(part for part in [user.surname,
+                                           user.name,
+                                           user.patronymic] if part)
+                or "(ФИО не указано)"
+            )
             phone = user.phone_number or "(телефон не указан)"
             year = user.entry_year or "(год не указан)"
             lines.append(f"{idx}. {fio} | {phone} | {year} | {username_text}")
@@ -880,14 +970,17 @@ async def cb_change_interview_back(query: CallbackQuery):
     await query.answer()
 
 
-@router.message(lambda message: admin_int_mode.get(message.from_user.id) == "add")
+@router.message(lambda message: admin_int_mode
+                .get(message.from_user.id) == "add")
 async def handle_add_interview_slot(message: Message):
     if admin_int_mode.get(message.from_user.id) != "add":
         return
 
     text = message.text.strip()
     if not re.fullmatch(r"\d{2}\.\d{2} \d{2}:\d{2}", text):
-        return await message.answer("Неверный формат. Введите, например, `26.06 17:00`.", parse_mode="Markdown")
+        return await message.answer("Неверный формат. "
+                                    "Введите, например, `26.06 17:00`.",
+                                    parse_mode="Markdown")
 
     try:
         await rq.add_interview_slot(text)
@@ -896,14 +989,16 @@ async def handle_add_interview_slot(message: Message):
         await message.answer("Ошибка: возможно, такая дата уже существует.")
     finally:
         admin_int_mode.pop(message.from_user.id, None)
-        await message.answer("Выберите действие:", reply_markup=get_change_int_kb())
+        await message.answer("Выберите действие:",
+                             reply_markup=get_change_int_kb())
 
 
 # кнопка Консультация
 @router.callback_query(F.data == "consultation")
 async def cb_consultation(callback: CallbackQuery):
     await callback.message.delete()
-    await send_consultation_slots(callback.message.answer, callback.from_user.id)
+    await send_consultation_slots(callback.message.answer,
+                                  callback.from_user.id)
     await safe_answer(callback)
 
 
@@ -944,17 +1039,22 @@ async def cb_events(callback: CallbackQuery):
 @router.message(Command("change_cons"))
 @admin_only
 async def cmd_change_cons(message: Message):
-    await message.answer("Выберите действие с датами консультаций:", reply_markup=get_change_cons_kb())
+    await message.answer("Выберите действие с датами консультаций:",
+                         reply_markup=get_change_cons_kb())
 
 
 @router.callback_query(F.data == "change_cons_add")
 async def cb_change_cons_add(query: CallbackQuery):
     admin_cons_mode[query.from_user.id] = "add"
     await query.message.edit_text(
-        "Введите новую дату в формате <b>ДД.ММ ЧЧ:ММ</b>, например `26.06 17:00`",
+        "Введите новую дату в формате <b>ДД.ММ ЧЧ:ММ</b>,"
+        " например `26.06 17:00`",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="⬅️ Отмена", callback_data="change_cons_back")]]
+            inline_keyboard=[
+                [InlineKeyboardButton(text="⬅️ Отмена",
+                                      callback_data="change_cons_back")]
+            ]
         )
     )
     await query.answer()
@@ -965,16 +1065,20 @@ async def cb_change_cons_del(query: CallbackQuery):
     slots = await rq.get_consultation_slots()
     if not slots:
         await query.answer("Слотов пока нет", show_alert=True)
-        return await query.message.edit_text("Нет дат для удаления.", reply_markup=get_change_cons_kb())
+        return await query.message.edit_text("Нет дат для удаления.",
+                                             reply_markup=get_change_cons_kb())
 
     buttons = [
-        [InlineKeyboardButton(text=slot_text, callback_data=f"change_cons_delete_{slot_id}")]
+        [InlineKeyboardButton(text=slot_text,
+                              callback_data=f"change_cons_delete_{slot_id}")]
         for slot_id, slot_text in slots
     ]
-    buttons.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="change_cons_back")])
+    buttons.append([InlineKeyboardButton(text="⬅️ Назад",
+                                         callback_data="change_cons_back")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    await query.message.edit_text("Выберите дату для удаления:", reply_markup=kb)
+    await query.message.edit_text("Выберите дату для удаления:",
+                                  reply_markup=kb)
     await query.answer()
 
 
@@ -989,12 +1093,14 @@ async def cb_change_cons_delete(query: CallbackQuery):
 @router.callback_query(F.data == "change_cons_back")
 async def cb_change_cons_back(query: CallbackQuery):
     admin_cons_mode.pop(query.from_user.id, None)
-    await query.message.edit_text("Выберите действие с датами консультаций:", reply_markup=get_change_cons_kb())
+    await query.message.edit_text("Выберите действие с датами консультаций:",
+                                  reply_markup=get_change_cons_kb())
     await query.answer()
 
 
 @router.message(StateFilter(None),
-                lambda message: admin_cons_mode.get(message.from_user.id) == "add")
+                lambda message: (admin_cons_mode
+                                 .get(message.from_user.id) == "add"))
 async def handle_add_slot(message: Message):
     user_id = message.from_user.id
     if admin_cons_mode.get(user_id) != "add":
@@ -1002,7 +1108,9 @@ async def handle_add_slot(message: Message):
 
     text = message.text.strip()
     if not re.fullmatch(r"\d{2}\.\d{2} \d{2}:\d{2}", text):
-        return await message.answer("Неверный формат. Введите, например, `26.06 17:00`.", parse_mode="Markdown")
+        return await message.answer("Неверный формат."
+                                    " Введите, например, `26.06 17:00`.",
+                                    parse_mode="Markdown")
 
     try:
         await rq.add_consultation_slot(text)
@@ -1011,7 +1119,8 @@ async def handle_add_slot(message: Message):
         await message.answer("Ошибка: возможно, такая дата уже существует.")
     finally:
         admin_cons_mode.pop(user_id, None)
-        await message.answer("Выберите действие:", reply_markup=get_change_cons_kb())
+        await message.answer("Выберите действие:",
+                             reply_markup=get_change_cons_kb())
 
 
 @router.message(Command("cons"))
@@ -1033,8 +1142,15 @@ async def cb_cons_slot(callback: CallbackQuery):
         lines = []
         for idx, user in enumerate(users, start=1):
             chat = await callback.bot.get_chat(user.tg_id)
-            username_text = f"@{chat.username}" if chat.username else "(нет юзернейма)"
-            fio = " ".join(filter(None, [user.surname, user.name, user.patronymic])) or "(ФИО не указано)"
+            username_text = (
+                f"@{chat.username}" if chat.username else "(нет юзернейма)"
+            )
+            fio = (
+                " ".join(part for part in [user.surname,
+                                           user.name,
+                                           user.patronymic] if part)
+                or "(ФИО не указано)"
+            )
             phone = user.phone_number or "(телефон не указан)"
             year = user.entry_year or "(год не указан)"
 
@@ -1070,13 +1186,15 @@ async def send_broadcast(message: Message):
 
     user_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu_from_send")]
+            [InlineKeyboardButton(text="🏠 Главное меню",
+                                  callback_data="main_menu_from_send")]
         ]
     )
 
     for user in users:
         try:
-            await message.bot.send_message(user.tg_id, content, reply_markup=user_keyboard)
+            await message.bot.send_message(user.tg_id, content,
+                                           reply_markup=user_keyboard)
             success += 1
         except (TelegramForbiddenError, TelegramBadRequest):
             failed += 1
@@ -1089,14 +1207,19 @@ async def send_broadcast(message: Message):
 @router.message(FSMRegistration.full_name)
 async def reg_full_name(message: Message, state: FSMContext):
     parts = message.text.strip().split()
-    if len(parts) != 3:
+    if len(parts) == 3:
+        surname, name, patronymic = parts
+    elif len(parts) == 2:
+        surname, name = parts
+        patronymic = "-"
+    else:
         await message.answer(
             "⚠️ Пожалуйста, введите ФИО целиком через пробел, например:\n"
-            "Иванов Иван Иванович"
+            "Иванов Иван Иванович\n"
+            "Или без отчества: Иванов Иван"
         )
         return
 
-    surname, name, patronymic = parts
     await state.update_data(surname=surname, name=name, patronymic=patronymic)
     await state.set_state(FSMRegistration.entry_year)
 
@@ -1118,7 +1241,9 @@ async def reg_entry_year(callback: CallbackQuery, state: FSMContext):
     year = int(callback.data.split("_")[1])
     await state.update_data(entry_year=year)
     await state.set_state(FSMRegistration.phone)
-    await callback.message.edit_text("Введите ваш <b>номер телефона</b> в формате +7XXXXXXXXXX или укажите прочерк:", parse_mode="HTML")
+    await callback.message.answer("Введите ваш <b>номер телефона</b>"
+                                  " в формате +7XXXXXXXXXX или "
+                                  "укажите прочерк:", parse_mode="HTML")
     await safe_answer(callback)
 
 
@@ -1126,7 +1251,9 @@ async def reg_entry_year(callback: CallbackQuery, state: FSMContext):
 async def reg_phone(message: Message, state: FSMContext):
     phone = message.text.strip()
     if not re.fullmatch(r"\+7\d{3}\d{3}\d{2}\d{2}", phone) and phone != "-":
-        await message.answer("⚠️ Неверный формат. Попробуйте ещё раз: +7XXXXXXXXXX\nИли укажите -")
+        await message.answer("⚠️ Неверный формат."
+                             " Попробуйте ещё раз:"
+                             " +7XXXXXXXXXX\nИли укажите -")
         return
     await state.update_data(phone=phone)
 
@@ -1145,14 +1272,26 @@ async def reg_city(message: Message, state: FSMContext):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="Социология управления и организаций", callback_data="dir_1")],
-                [InlineKeyboardButton(text="Государственное муниципальное управление", callback_data="dir_2")],
-                [InlineKeyboardButton(text="Реклама и связи с общественностью", callback_data="dir_3")],
-                [InlineKeyboardButton(text="Маркетинг и логистика в коммерции", callback_data="dir_4")],
-                [InlineKeyboardButton(text="Экономико-правовое обеспечение экономической безопасности", callback_data="dir_5")],
-                [InlineKeyboardButton(text="Юриспруденция", callback_data="dir_6")],
-                [InlineKeyboardButton(text="Правовое обеспечение национальной безопасности", callback_data="dir_7")],
-                [InlineKeyboardButton(text="Публичная политика и управление", callback_data="dir_8")]
+                [InlineKeyboardButton(text="Социология управления"
+                                      " и организаций",
+                                      callback_data="dir_1")],
+                [InlineKeyboardButton(text="Государственное"
+                                      " муниципальное управление",
+                                      callback_data="dir_2")],
+                [InlineKeyboardButton(text="Реклама и связи с общественностью",
+                                      callback_data="dir_3")],
+                [InlineKeyboardButton(text="Маркетинг и логистика в коммерции",
+                                      callback_data="dir_4")],
+                [InlineKeyboardButton(text="Экономико-правовое"
+                                      " обеспечение экономической"
+                                      " безопасности", callback_data="dir_5")],
+                [InlineKeyboardButton(text="Юриспруденция",
+                                      callback_data="dir_6")],
+                [InlineKeyboardButton(text="Правовое обеспечение"
+                                      " национальной безопасности",
+                                      callback_data="dir_7")],
+                [InlineKeyboardButton(text="Публичная политика и управление",
+                                      callback_data="dir_8")]
             ]
         )
     )
@@ -1166,7 +1305,8 @@ async def reg_direction(callback: CallbackQuery, state: FSMContext):
     await state.update_data(direction=direction)
 
     data = await state.get_data()
-    await rq.set_fio(callback.from_user.id, data["surname"], data["name"], data["patronymic"])
+    await rq.set_fio(callback.from_user.id, data["surname"], data["name"],
+                     data["patronymic"])
     await rq.set_entry_year(callback.from_user.id, data["entry_year"])
     await rq.set_phone_number(callback.from_user.id, data["phone"])
     await rq.set_city(callback.from_user.id, data["city"])
@@ -1175,7 +1315,6 @@ async def reg_direction(callback: CallbackQuery, state: FSMContext):
 
     await safe_answer(callback, "✅ Регистрация завершена!")
     await send_main_menu(callback)
-
 
 
 @router.callback_query(F.data == "edit_profile")
@@ -1191,7 +1330,9 @@ async def cb_edit_fio(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_edit_mode[user_id] = "fio"
 
-    prompt = await callback.message.edit_text("Введите новое <b>ФИО</b> через пробел:", parse_mode="HTML")
+    prompt = await callback.message.edit_text("Введите новое <b>ФИО</b>"
+                                              " через пробел:",
+                                              parse_mode="HTML")
     user_prompt_message_id[user_id] = prompt.message_id
     await safe_answer(callback)
 
@@ -1201,7 +1342,10 @@ async def cb_edit_phone_number(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_edit_mode[user_id] = "phone"
 
-    prompt = await callback.message.edit_text("Введите ваш <b>номер телефона</b> в формате +7XXXXXXXXXX:", parse_mode="HTML")
+    prompt = await callback.message.edit_text("Введите ваш"
+                                              " <b>номер телефона</b>"
+                                              " в формате +7XXXXXXXXXX:",
+                                              parse_mode="HTML")
     user_prompt_message_id[user_id] = prompt.message_id
     await safe_answer(callback)
 
@@ -1211,12 +1355,15 @@ async def cb_edit_year(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_edit_mode[user_id] = "year"
 
-    await callback.message.edit_text("Выберите год поступления:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="2023", callback_data="year_2023")],
         [InlineKeyboardButton(text="2024", callback_data="year_2024")],
         [InlineKeyboardButton(text="2025", callback_data="year_2025")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="edit_profile")]
-    ]))
+    ])
+
+    await callback.message.edit_text("Выберите год поступления:",
+                                     reply_markup=keyboard)
     await safe_answer(callback)
 
 
@@ -1313,7 +1460,8 @@ async def msg_edit_profile(message: Message):
         parts = message.text.strip().split()
         if len(parts) != 3:
             await message.delete()
-            err = await message.answer("⚠️ Введите ФИО в формате:\nФамилия Имя Отчество")
+            err = await message.answer("⚠️ Введите ФИО в"
+                                       " формате:\nФамилия Имя Отчество")
             user_error_message_id[user_id] = err.message_id
             return
         surname, name, patronymic = parts
@@ -1321,9 +1469,12 @@ async def msg_edit_profile(message: Message):
 
     elif mode == "phone":
         phone = message.text.strip()
-        if not re.fullmatch(r"\+7\d{3}\d{3}\d{2}\d{2}", phone) and phone != "-":
+        if not re.fullmatch(r"\+7\d{3}\d{3}\d{2}\d{2}",
+                            phone) and phone != "-":
             await message.delete()
-            err = await message.answer("⚠️ Неверный формат. Попробуйте ещё раз: +7XXXXXXXXXX\nИли укажите -")
+            err = await message.answer("⚠️ Неверный формат."
+                                       " Попробуйте ещё раз: +7XXXXXXXXXX"
+                                       "\nИли укажите -")
             user_error_message_id[user_id] = err.message_id
             return
         await rq.set_phone_number(user_id, phone)
@@ -1338,15 +1489,17 @@ async def msg_edit_profile(message: Message):
     await message.delete()
     if prompt_id:
         try:
-            await message.bot.delete_message(chat_id=message.chat.id, message_id=prompt_id)
-        except:
+            await message.bot.delete_message(chat_id=message.chat.id,
+                                             message_id=prompt_id)
+        except Exception:
             pass
 
     err_id = user_error_message_id.pop(user_id, None)
     if err_id:
         try:
-            await message.bot.delete_message(chat_id=message.chat.id, message_id=err_id)
-        except:
+            await message.bot.delete_message(chat_id=message.chat.id,
+                                             message_id=err_id)
+        except Exception:
             pass
 
     await message.answer(

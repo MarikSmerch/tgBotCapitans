@@ -1,6 +1,7 @@
 from sqlalchemy import BigInteger, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 
 
 # Создание движка и сессии
@@ -19,7 +20,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tg_id: Mapped[int] = mapped_column(BigInteger, unique=True)
-    is_subscribed: Mapped[bool] = mapped_column(default=True, server_default="1")
+    is_subscribed: Mapped[bool] = mapped_column(default=True,
+                                                server_default="1")
     surname: Mapped[str] = mapped_column(String, nullable=True)
     name: Mapped[str] = mapped_column(String, nullable=True)
     patronymic: Mapped[str] = mapped_column(String, nullable=True)
