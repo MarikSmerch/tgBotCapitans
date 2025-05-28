@@ -1,5 +1,6 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, FSInputFile
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from aiogram.filters import CommandStart, Command, StateFilter
 import app.database.requests as rq
@@ -38,8 +39,10 @@ DIRECTIONS = {
 def get_edit_profile_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="ФИО", callback_data="edit_fio")],
-        [InlineKeyboardButton(text="Год поступления", callback_data="edit_year")],
-        [InlineKeyboardButton(text="Номер телефона", callback_data="edit_phone")],
+        [InlineKeyboardButton(text="Год поступления",
+                              callback_data="edit_year")],
+        [InlineKeyboardButton(text="Номер телефона",
+                              callback_data="edit_phone")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="show_profile")]
     ])
 
@@ -54,8 +57,10 @@ def get_events_kb():
 
 def get_change_cons_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Добавить дату", callback_data="change_cons_add")],
-        [InlineKeyboardButton(text="Удалить дату", callback_data="change_cons_del")]
+        [InlineKeyboardButton(text="Добавить дату",
+                              callback_data="change_cons_add")],
+        [InlineKeyboardButton(text="Удалить дату",
+                              callback_data="change_cons_del")]
     ])
 
 
@@ -69,11 +74,16 @@ async def send_main_menu(obj):
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Профиль", callback_data="show_profile")],
-            [InlineKeyboardButton(text="Как поступить", callback_data="entrance")],
-            [InlineKeyboardButton(text="Консультация", callback_data="consultation")],
-            [InlineKeyboardButton(text="Календарь", callback_data="events")],
-            [InlineKeyboardButton(text="Связаться с наставником", callback_data="mentor")],
+            [InlineKeyboardButton(text="Профиль",
+                                  callback_data="show_profile")],
+            [InlineKeyboardButton(text="Как поступить",
+                                  callback_data="entrance")],
+            [InlineKeyboardButton(text="Консультация",
+                                  callback_data="consultation")],
+            [InlineKeyboardButton(text="Календарь",
+                                  callback_data="events")],
+            [InlineKeyboardButton(text="Связаться с наставником",
+                                  callback_data="mentor")],
         ]
     )
     caption = "Добро пожаловать!"
@@ -107,10 +117,13 @@ async def send_profile_menu(send_func, user):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu"),
-                InlineKeyboardButton(text=sub_text, callback_data="toggle_subscription")
+                InlineKeyboardButton(text="🏠 Главное меню",
+                                     callback_data="main_menu"),
+                InlineKeyboardButton(text=sub_text,
+                                     callback_data="toggle_subscription")
             ],
-            [InlineKeyboardButton(text="Изменить данные", callback_data="edit_profile")]
+            [InlineKeyboardButton(text="Изменить данные",
+                                  callback_data="edit_profile")]
         ]
     )
 
@@ -120,16 +133,20 @@ async def send_profile_menu(send_func, user):
 # Отрисовка информации о поступлении
 async def send_about_entrance(send_func):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Записаться на собеседование", callback_data="appointment_interview")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+        [InlineKeyboardButton(text="Записаться на собеседование",
+                              callback_data="appointment_interview")],
+        [InlineKeyboardButton(text="🏠 Главное меню",
+                              callback_data="main_menu")]
     ])
     await send_func("Можно записаться на собеседование", reply_markup=keyboard)
 
 
 def get_change_int_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Добавить дату", callback_data="change_int_add")],
-        [InlineKeyboardButton(text="Удалить дату", callback_data="change_int_del")]
+        [InlineKeyboardButton(text="Добавить дату",
+                              callback_data="change_int_add")],
+        [InlineKeyboardButton(text="Удалить дату",
+                              callback_data="change_int_del")]
     ])
 
 
@@ -137,18 +154,22 @@ def get_change_int_kb():
 async def send_features(send_func):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Записаться на консультацию", callback_data="appointment_consultation")],
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+            [InlineKeyboardButton(text="Записаться на консультацию",
+                                  callback_data="appointment_consultation")],
+            [InlineKeyboardButton(text="🏠 Главное меню",
+                                  callback_data="main_menu")]
         ]
     )
-    await send_func("Здесь можно записаться на консультацию", reply_markup=keyboard)
+    await send_func("Здесь можно записаться на консультацию",
+                    reply_markup=keyboard)
 
 
 # Отрисовка информации о наставников
 async def send_mentor(send_func):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+            [InlineKeyboardButton(text="🏠 Главное меню",
+                                  callback_data="main_menu")]
         ]
     )
     await send_func("Связаться с наставником", reply_markup=keyboard)
@@ -158,7 +179,8 @@ async def send_mentor(send_func):
 async def send_events(send_func):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+            [InlineKeyboardButton(text="🏠 Главное меню",
+                                  callback_data="main_menu")]
         ]
     )
 
@@ -190,9 +212,11 @@ async def send_consultation_slots(send_func, tg_id: int):
     buttons = []
     for slot_id, slot_text in slots:
         label = f"{slot_text}{' ✅' if slot_text == user_slot else ''}"
-        buttons.append([InlineKeyboardButton(text=label, callback_data=f"slot_{slot_id}")])
+        buttons.append([InlineKeyboardButton(text=label,
+                                             callback_data=f"slot_{slot_id}")])
 
-    buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")])
+    buttons.append([InlineKeyboardButton(text="🏠 Главное меню",
+                                         callback_data="main_menu")])
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await send_func("Выберите дату консультации:", reply_markup=kb)
@@ -201,7 +225,8 @@ async def send_consultation_slots(send_func, tg_id: int):
 async def show_slots_list(send_func):
     slots = await rq.get_consultation_slots()
     buttons = [
-        [InlineKeyboardButton(text=slot_text, callback_data=f"cons_slot_{slot_id}")]
+        [InlineKeyboardButton(text=slot_text,
+                              callback_data=f"cons_slot_{slot_id}")]
         for slot_id, slot_text in slots
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -214,18 +239,31 @@ async def send_interview_slots(send_func, tg_id: int):
 
     buttons = []
     for slot_id, slot_text in slots:
-        label = f"{slot_text}{' ✅' if slot_text == user_slot else ''}"
-        buttons.append([InlineKeyboardButton(text=label, callback_data=f"interview_slot_{slot_id}")])
+        check_mark = " ✅" if slot_text == user_slot else ""
+        label = f"{slot_text}{check_mark}"
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=label,
+                    callback_data=f"interview_slot_{slot_id}",
+                ),
+            ],
+        )
 
-    buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")])
+    buttons.append(
+        [InlineKeyboardButton(text="🏠 Главное меню",
+                              callback_data="main_menu")]
+    )
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+
     await send_func("Выберите дату записи:", reply_markup=kb)
 
 
 async def show_interview_slots_list(send_func):
     slots = await rq.get_interview_consultation_slots()
     buttons = [
-        [InlineKeyboardButton(text=slot_text, callback_data=f"int_slot_{slot_id}")]
+        [InlineKeyboardButton(text=slot_text,
+                              callback_data=f"int_slot_{slot_id}")]
         for slot_id, slot_text in slots
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
