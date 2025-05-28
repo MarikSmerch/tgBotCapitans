@@ -23,6 +23,16 @@ admin_cons_mode = {}
 admin_int_mode = {}
 admin_event_mode = {}
 admin_event_data = {}
+DIRECTIONS = {
+    "dir_1": "Социология управления и организаций",
+    "dir_2": "Государственное муниципальное управление",
+    "dir_3": "Реклама и связи с общественностью",
+    "dir_4": "Маркетинг и логистика в коммерции",
+    "dir_5": "Экономико-правовое обеспечение экономической безопасности",
+    "dir_6": "Юриспруденция",
+    "dir_7": "Правовое обеспечение национальной безопасности",
+    "dir_8": "Публичная политика и управление"
+}
 
 
 def get_edit_profile_kb():
@@ -50,18 +60,28 @@ def get_change_cons_kb():
 
 
 # Отрисовка главного меню
-async def send_main_menu(message):
+async def send_main_menu(obj):
+    if isinstance(obj, CallbackQuery):
+        msg = obj.message
+        await obj.answer()
+    else:
+        msg = obj
+
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Профиль", callback_data="show_profile")],
             [InlineKeyboardButton(text="Как поступить", callback_data="entrance")],
             [InlineKeyboardButton(text="Консультация", callback_data="consultation")],
             [InlineKeyboardButton(text="Календарь", callback_data="events")],
-            [InlineKeyboardButton(text="Связаться с настивником", callback_data="mentor")]
+            [InlineKeyboardButton(text="Связаться с наставником", callback_data="mentor")],
         ]
     )
     caption = "Добро пожаловать!"
-    await message.answer_photo(photo=FSInputFile("app/img/menu.png"), caption=caption, reply_markup=keyboard)
+    await msg.answer_photo(
+        photo=FSInputFile("app/img/menu.png"),
+        caption=caption,
+        reply_markup=keyboard,
+    )
 
 
 # Отрисовка профиля с кнопкой подписки
@@ -219,10 +239,24 @@ async def cmd_start(message: Message, state: FSMContext):
 
     await rq.set_user(user_id)
     user = await rq.get_user_by_tg_id(user_id)
-
-    if not (user.surname and user.name and user.patronymic and user.entry_year and user.phone_number):
+    if not (
+        user.surname
+        and user.name
+        and user.patronymic
+        and user.entry_year
+        and user.phone_number
+    ):
         await state.set_state(FSMRegistration.full_name)
-        await message.answer("Добро пожаловать!\n\nВведите Ваше <b>ФИО</b> через пробел:", parse_mode="HTML")
+        await message.answer(
+            "Добро пожаловать!\n\n"
+            "Введите Ваше <b>ФИО</b> через пробел:\n\n"
+            "Заполняя данные, я даю свое согласие на обработку "
+            "моих персональных данных в соответствии с Федеральным "
+            "законом от 27.07.2006 №152-ФЗ «О персональных данных», "
+            "на условиях и для целей, определённых в Согласии "
+            "на обработку персональных данных.",
+            parse_mode="HTML",
+        )
     else:
         await send_main_menu(message)
 
@@ -890,14 +924,52 @@ async def reg_phone(message: Message, state: FSMContext):
         return
     await state.update_data(phone=phone)
 
+    await state.set_state(FSMRegistration.city)
+    await message.answer("Укажите ваш <b>город</b>: ", parse_mode="HTML")
+
+
+@router.message(FSMRegistration.city)
+async def reg_city(message: Message, state: FSMContext):
+    city = message.text.strip()
+    await state.update_data(city=city)
+
+    await state.set_state(FSMRegistration.direction)
+    await message.answer(
+        "Выберите <b>направление подготовки</b>:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Социология управления и организаций", callback_data="dir_1")],
+                [InlineKeyboardButton(text="Государственное муниципальное управление", callback_data="dir_2")],
+                [InlineKeyboardButton(text="Реклама и связи с общественностью", callback_data="dir_3")],
+                [InlineKeyboardButton(text="Маркетинг и логистика в коммерции", callback_data="dir_4")],
+                [InlineKeyboardButton(text="Экономико-правовое обеспечение экономической безопасности", callback_data="dir_5")],
+                [InlineKeyboardButton(text="Юриспруденция", callback_data="dir_6")],
+                [InlineKeyboardButton(text="Правовое обеспечение национальной безопасности", callback_data="dir_7")],
+                [InlineKeyboardButton(text="Публичная политика и управление", callback_data="dir_8")]
+            ]
+        )
+    )
+
+
+@router.callback_query(F.data.startswith("dir_"), FSMRegistration.direction)
+async def reg_direction(callback: CallbackQuery, state: FSMContext):
+    direction_code = callback.data.strip()
+    direction = DIRECTIONS.get(direction_code, "Неизвестное направление")
+
+    await state.update_data(direction=direction)
+
     data = await state.get_data()
-    await rq.set_fio(message.from_user.id, data["surname"], data["name"], data["patronymic"])
-    await rq.set_entry_year(message.from_user.id, data["entry_year"])
-    await rq.set_phone_number(message.from_user.id, data["phone"])
+    await rq.set_fio(callback.from_user.id, data["surname"], data["name"], data["patronymic"])
+    await rq.set_entry_year(callback.from_user.id, data["entry_year"])
+    await rq.set_phone_number(callback.from_user.id, data["phone"])
+    await rq.set_city(callback.from_user.id, data["city"])
+    await rq.set_direction(callback.from_user.id, data["direction"])
     await state.clear()
 
-    await message.answer("✅ Регистрация завершена!")
-    await send_main_menu(message)
+    await callback.answer("✅ Регистрация завершена!")
+    await send_main_menu(callback)
+
 
 
 @router.callback_query(F.data == "edit_profile")

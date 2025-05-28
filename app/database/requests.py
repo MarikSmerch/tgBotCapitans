@@ -76,6 +76,20 @@ async def set_phone_number(tg_id: int, phone: str) -> None:
         await session.commit()
 
 
+async def set_city(tg_id: int, city: str) -> None:
+    async with async_session() as session:
+        stmt = update(User).where(User.tg_id == tg_id).values(city=city)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def set_direction(tg_id: int, direction: str) -> None:
+    async with async_session() as session:
+        stmt = update(User).where(User.tg_id == tg_id).values(direction=direction)
+        await session.execute(stmt)
+        await session.commit()
+
+
 async def get_user_by_tg_id(tg_id: int) -> User | None:
     async with async_session() as session:
         return await session.scalar(select(User).where(User.tg_id == tg_id))

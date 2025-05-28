@@ -25,6 +25,8 @@ class User(Base):
     patronymic: Mapped[str] = mapped_column(String, nullable=True)
     entry_year: Mapped[int] = mapped_column(nullable=True)
     phone_number: Mapped[str] = mapped_column(String, nullable=True)
+    city: Mapped[str] = mapped_column(String, nullable=True)
+    direction: Mapped[str] = mapped_column(String, nullable=True)
     consultation_slot: Mapped[str] = mapped_column(String, nullable=True)
     interview_slot: Mapped[str] = mapped_column(String, nullable=True)
 
