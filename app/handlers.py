@@ -28,14 +28,15 @@ admin_int_mode = {}
 admin_event_mode = {}
 admin_event_data = {}
 DIRECTIONS = {
-    "dir_1": "Социология управления и организаций",
-    "dir_2": "Государственное муниципальное управление",
-    "dir_3": "Реклама и связи с общественностью",
-    "dir_4": "Маркетинг и логистика в коммерции",
-    "dir_5": "Экономико-правовое обеспечение экономической безопасности",
-    "dir_6": "Юриспруденция",
-    "dir_7": "Правовое обеспечение национальной безопасности",
-    "dir_8": "Публичная политика и управление"
+    "dir_1": "39.03.01 Социология управления и организаций",
+    "dir_2": "38.03.01 Государственное и муниципальное управление",
+    "dir_3": "42.03.01 Реклама и связи с общественностью",
+    "dir_4": "38.03.06 Маркетинг и логистика в коммерции",
+    "dir_5": "38.05.01 Экономико-правовое обеспечение "
+    "экономической безопасности",
+    "dir_6": "40.03.01 Юриспруденция",
+    "dir_7": "40.05.01 Правовое обеспечение национальной безопасности",
+    "dir_8": "41.03.06 Публичная политика и управление"
 }
 
 
@@ -1175,13 +1176,19 @@ async def cb_cons_back(callback: CallbackQuery):
 @router.message(Command("send"))
 @admin_only
 async def send_broadcast(message: Message):
+    if message.caption:
+        content = message.caption
+        if content.lower().startswith("/send"):
+            content = content[5:].strip()
+    else:
+        content = message.text.removeprefix("/send").strip()
 
-    content = message.text.removeprefix("/send").strip()
-    if not content:
-        return await message.answer("⚠️ Укажи текст после команды /send")
+    if not content and not (message.photo or message.video):
+        return await message.answer("⚠️ Укажи текст "
+                                    " после команды /send или"
+                                    " прикрепи фото/видео с подписью.")
 
     users = await rq.get_all_subscribed_users()
-
     success, failed = 0, 0
 
     user_keyboard = InlineKeyboardMarkup(
@@ -1193,8 +1200,26 @@ async def send_broadcast(message: Message):
 
     for user in users:
         try:
-            await message.bot.send_message(user.tg_id, content,
-                                           reply_markup=user_keyboard)
+            if message.photo:
+                await message.bot.send_photo(
+                    chat_id=user.tg_id,
+                    photo=message.photo[-1].file_id,
+                    caption=content,
+                    reply_markup=user_keyboard
+                )
+            elif message.video:
+                await message.bot.send_video(
+                    chat_id=user.tg_id,
+                    video=message.video.file_id,
+                    caption=content,
+                    reply_markup=user_keyboard
+                )
+            else:
+                await message.bot.send_message(
+                    chat_id=user.tg_id,
+                    text=content,
+                    reply_markup=user_keyboard
+                )
             success += 1
         except (TelegramForbiddenError, TelegramBadRequest):
             failed += 1
@@ -1228,9 +1253,14 @@ async def reg_full_name(message: Message, state: FSMContext):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="2023", callback_data="year_2023")],
-                [InlineKeyboardButton(text="2024", callback_data="year_2024")],
-                [InlineKeyboardButton(text="2025", callback_data="year_2025")]
+                [InlineKeyboardButton(text="2025",
+                                      callback_data="year_2025")],
+                [InlineKeyboardButton(text="2026",
+                                      callback_data="year_2026")],
+                [InlineKeyboardButton(text="2027",
+                                      callback_data="year_2027")],
+                [InlineKeyboardButton(text="После 2027",
+                                      callback_data="year_2027+")],
             ]
         )
     )
@@ -1238,8 +1268,11 @@ async def reg_full_name(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("year_"), FSMRegistration.entry_year)
 async def reg_entry_year(callback: CallbackQuery, state: FSMContext):
-    year = int(callback.data.split("_")[1])
-    await state.update_data(entry_year=year)
+    year = callback.data.split("_")[1]
+    if year == "2027+":
+        await state.update_data(entry_year="После 2027")
+    else:
+        await state.update_data(entry_year=year)
     await state.set_state(FSMRegistration.phone)
     await callback.message.answer("Введите ваш <b>номер телефона</b>"
                                   " в формате +7XXXXXXXXXX или "
@@ -1272,25 +1305,28 @@ async def reg_city(message: Message, state: FSMContext):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="Социология управления"
+                [InlineKeyboardButton(text="39.03.01 Социология управления"
                                       " и организаций",
                                       callback_data="dir_1")],
-                [InlineKeyboardButton(text="Государственное"
+                [InlineKeyboardButton(text="38.03.01 Государственное и"
                                       " муниципальное управление",
                                       callback_data="dir_2")],
-                [InlineKeyboardButton(text="Реклама и связи с общественностью",
+                [InlineKeyboardButton(text="42.03.01 Реклама и связи с "
+                                      "общественностью",
                                       callback_data="dir_3")],
-                [InlineKeyboardButton(text="Маркетинг и логистика в коммерции",
+                [InlineKeyboardButton(text="38.03.06 Маркетинг и "
+                                      "логистика в коммерции",
                                       callback_data="dir_4")],
-                [InlineKeyboardButton(text="Экономико-правовое"
+                [InlineKeyboardButton(text="38.05.01 Экономико-правовое"
                                       " обеспечение экономической"
                                       " безопасности", callback_data="dir_5")],
-                [InlineKeyboardButton(text="Юриспруденция",
+                [InlineKeyboardButton(text="40.03.01 Юриспруденция",
                                       callback_data="dir_6")],
-                [InlineKeyboardButton(text="Правовое обеспечение"
+                [InlineKeyboardButton(text="40.05.01 Правовое обеспечение"
                                       " национальной безопасности",
                                       callback_data="dir_7")],
-                [InlineKeyboardButton(text="Публичная политика и управление",
+                [InlineKeyboardButton(text="41.03.06 Публичная "
+                                      "политика и управление",
                                       callback_data="dir_8")]
             ]
         )
@@ -1356,9 +1392,10 @@ async def cb_edit_year(callback: CallbackQuery):
     user_edit_mode[user_id] = "year"
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="2023", callback_data="year_2023")],
-        [InlineKeyboardButton(text="2024", callback_data="year_2024")],
         [InlineKeyboardButton(text="2025", callback_data="year_2025")],
+        [InlineKeyboardButton(text="2026", callback_data="year_2026")],
+        [InlineKeyboardButton(text="2027", callback_data="year_2027")],
+        [InlineKeyboardButton(text="После 2027", callback_data="year_2027+")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data="edit_profile")]
     ])
 
@@ -1372,10 +1409,13 @@ async def cb_select_year(callback: CallbackQuery):
     user_id = callback.from_user.id
     year = callback.data.split("_")[1]
 
-    if year not in ("2023", "2024", "2025"):
+    if year not in ("2025", "2026", "2027", "2027+"):
         return
 
-    await rq.set_entry_year(user_id, int(year))
+    if year == "2027+":
+        await rq.set_entry_year(user_id, "После 2027")
+    else:
+        await rq.set_entry_year(user_id, year)
 
     user_edit_mode.pop(user_id, None)
     user_prompt_message_id.pop(user_id, None)

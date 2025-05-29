@@ -25,7 +25,7 @@ class User(Base):
     surname: Mapped[str] = mapped_column(String, nullable=True)
     name: Mapped[str] = mapped_column(String, nullable=True)
     patronymic: Mapped[str] = mapped_column(String, nullable=True)
-    entry_year: Mapped[int] = mapped_column(nullable=True)
+    entry_year: Mapped[str] = mapped_column(String, nullable=True)
     phone_number: Mapped[str] = mapped_column(String, nullable=True)
     city: Mapped[str] = mapped_column(String, nullable=True)
     direction: Mapped[str] = mapped_column(String, nullable=True)

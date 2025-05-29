@@ -62,7 +62,7 @@ async def set_fio(tg_id: int, surname: str, name: str, patronymic: str):
 
 
 # Изменение года поступления
-async def set_entry_year(tg_id: int, year: int) -> None:
+async def set_entry_year(tg_id: int, year: str) -> None:
     async with async_session() as session:
         stmt = update(User).where(User.tg_id == tg_id).values(entry_year=year)
         await session.execute(stmt)
@@ -72,8 +72,7 @@ async def set_entry_year(tg_id: int, year: int) -> None:
 # Изменение телефона
 async def set_phone_number(tg_id: int, phone: str) -> None:
     async with async_session() as session:
-        stmt = update(User).where((User.tg_id == tg_id)
-                                  .values(phone_number=phone))
+        stmt = update(User).where(User.tg_id == tg_id).values(phone_number=phone)
         await session.execute(stmt)
         await session.commit()
 
@@ -87,8 +86,7 @@ async def set_city(tg_id: int, city: str) -> None:
 
 async def set_direction(tg_id: int, direction: str) -> None:
     async with async_session() as session:
-        stmt = update(User).where((User.tg_id == tg_id)
-                                  .values(direction=direction))
+        stmt = update(User).where(User.tg_id == tg_id).values(direction=direction)
         await session.execute(stmt)
         await session.commit()
 
