@@ -139,7 +139,7 @@ async def send_users_excel(users, caption, message):
     filename = f"app/temp/{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
     df = pd.DataFrame([{
-        "Telegram": f"tg://user?id={u.tg_id}",
+        "Telegram": f"https://t.me/{u.username}" if u.username else f"tg://user?id={u.tg_id}",
         "Фамилия": u.surname,
         "Имя": u.name,
         "Отчество": u.patronymic,
