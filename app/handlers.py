@@ -389,7 +389,7 @@ async def show_interview_slots_list(send_func):
 async def cmd_start(message: Message, state: FSMContext):
     user_id = message.from_user.id
 
-    await rq.set_user(user_id)
+    await rq.set_user(user_id, message.from_user.username)
     user = await rq.get_user_by_tg_id(user_id)
     if not (
         user.surname

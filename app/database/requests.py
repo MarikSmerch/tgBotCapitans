@@ -13,7 +13,7 @@ async def set_user(tg_id: int, username: str | None = None) -> None:
                                         .where(User.tg_id == tg_id))
 
             if not user:
-                session.add(User(tg_id=tg_id))
+                session.add(User(tg_id=tg_id, username=username))
                 await session.commit()
         except Exception as e:
             await session.rollback()

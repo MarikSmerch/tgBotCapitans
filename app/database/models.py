@@ -31,6 +31,7 @@ class User(Base):
     direction: Mapped[str] = mapped_column(String, nullable=True)
     consultation_slot: Mapped[str] = mapped_column(String, nullable=True)
     interview_slot: Mapped[str] = mapped_column(String, nullable=True)
+    username: Mapped[str] = mapped_column(String, nullable=True)
 
 
 # Модель дат для консультации
