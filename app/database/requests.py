@@ -6,7 +6,7 @@ from sqlalchemy.sql import update
 
 
 # Добавление пользователя в бд
-async def set_user(tg_id: int) -> None:
+async def set_user(tg_id: int, username: str | None = None) -> None:
     async with async_session() as session:
         try:
             user = await session.scalar(select(User)
