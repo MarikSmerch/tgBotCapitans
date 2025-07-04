@@ -11,6 +11,7 @@ from app.states.registration import FSMRegistration
 
 import pandas as pd
 import os
+from datetime import date
 
 from datetime import datetime
 
@@ -37,6 +38,12 @@ DIRECTIONS = {
     "dir_6": "40.03.01 Юриспруденция",
     "dir_7": "40.05.01 Правовое обеспечение национальной безопасности",
     "dir_8": "41.03.06 Публичная политика и управление"
+}
+REFERRAL_SOURCES = {
+    "source_1": "От волонтёра на отборочной комиссии",
+    "source_2": "Из социальных сетей",
+    "source_3": "От знакомых/друзей",
+    "source_4": "Другое"
 }
 
 
@@ -1274,6 +1281,7 @@ async def reg_entry_year(callback: CallbackQuery, state: FSMContext):
     else:
         await state.update_data(entry_year=year)
     await state.set_state(FSMRegistration.phone)
+    await callback.message.delete()
     await callback.message.answer("Введите ваш <b>номер телефона</b>"
                                   " в формате +7XXXXXXXXXX или "
                                   "укажите прочерк:", parse_mode="HTML")
@@ -1340,6 +1348,35 @@ async def reg_direction(callback: CallbackQuery, state: FSMContext):
 
     await state.update_data(direction=direction)
 
+    await callback.message.delete()
+
+    await callback.message.answer(
+        "Откуда Вы <b>узнали о нас</b>:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="От волонтёра на отборочной комиссии",
+                                      callback_data="source_1")],
+                [InlineKeyboardButton(text="Из социальных сетей",
+                                      callback_data="source_2")],
+                [InlineKeyboardButton(text="От знакомых/друзей",
+                                      callback_data="source_3")],
+                [InlineKeyboardButton(text="Другое",
+                                      callback_data="source_4")]
+            ]
+        )
+    )
+
+
+@router.callback_query(F.data.startswith("source_"), FSMRegistration.direction)
+async def reg_direction(callback: CallbackQuery, state: FSMContext):
+    referral_code = callback.data.strip()
+    referral_source = REFERRAL_SOURCES.get(referral_code, "Другое")
+    
+    await state.update_data(referral_source=referral_source)
+    
+    await callback.message.delete()
+
     data = await state.get_data()
     await rq.set_fio(callback.from_user.id, data["surname"], data["name"],
                      data["patronymic"])
@@ -1347,6 +1384,8 @@ async def reg_direction(callback: CallbackQuery, state: FSMContext):
     await rq.set_phone_number(callback.from_user.id, data["phone"])
     await rq.set_city(callback.from_user.id, data["city"])
     await rq.set_direction(callback.from_user.id, data["direction"])
+    await rq.set_referral_source(callback.from_user.id, data["referral_source"])
+    await rq.set_reg_date(callback.from_user.id, date.today())
     await state.clear()
 
     await safe_answer(callback, "✅ Регистрация завершена!")

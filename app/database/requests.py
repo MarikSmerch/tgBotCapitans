@@ -3,6 +3,7 @@ from app.database.models import User, ConsultationSlot, InterviewSlot
 from app.database.models import EventSlot
 from sqlalchemy import select, delete
 from sqlalchemy.sql import update
+from datetime import date
 
 
 # Добавление пользователя в бд
@@ -87,6 +88,20 @@ async def set_city(tg_id: int, city: str) -> None:
 async def set_direction(tg_id: int, direction: str) -> None:
     async with async_session() as session:
         stmt = update(User).where(User.tg_id == tg_id).values(direction=direction)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def set_reg_date(tg_id: int, reg_date: date) -> None:
+    async with async_session() as session:
+        stmt = update(User).where(User.tg_id == tg_id).values(reg_date=reg_date)
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def set_referral_source(tg_id: int, ref_source: str) -> None:
+    async with async_session() as session:
+        stmt = update(User).where(User.tg_id == tg_id).values(referral_source=ref_source)
         await session.execute(stmt)
         await session.commit()
 

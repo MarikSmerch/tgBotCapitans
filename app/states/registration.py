@@ -7,3 +7,4 @@ class FSMRegistration(StatesGroup):
     phone = State()
     city = State()
     direction = State()
+    referral_source = State()

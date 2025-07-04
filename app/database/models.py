@@ -2,6 +2,8 @@ from sqlalchemy import BigInteger, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
+from datetime import date
+from sqlalchemy import Date
 
 
 # Создание движка и сессии
@@ -32,6 +34,8 @@ class User(Base):
     consultation_slot: Mapped[str] = mapped_column(String, nullable=True)
     interview_slot: Mapped[str] = mapped_column(String, nullable=True)
     username: Mapped[str] = mapped_column(String, nullable=True)
+    reg_date: Mapped[date] = mapped_column(Date, nullable=True)
+    referral_source: Mapped[str] = mapped_column(String, nullable=True)
 
 
 # Модель дат для консультации
