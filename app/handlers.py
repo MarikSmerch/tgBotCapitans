@@ -154,7 +154,7 @@ async def send_users_excel(users, caption, message):
         "Телефон": u.phone_number,
         "Город": u.city,
         "Направление": u.direction,
-        "Как узнали": u.referral_source
+        "Как узнали": u.referral_source,
         "Дата регистрации": u.reg_date
     } for u in users])
 
