@@ -153,7 +153,9 @@ async def send_users_excel(users, caption, message):
         "Год поступления": u.entry_year,
         "Телефон": u.phone_number,
         "Город": u.city,
-        "Направление": u.direction
+        "Направление": u.direction,
+        "Как узнали": u.referral_source
+        "Дата регистрации": u.reg_date
     } for u in users])
 
     df.to_excel(filename, index=False)
